@@ -1,0 +1,22 @@
+{
+  "name": "draw2d",
+  "version": "5.5.2",
+  "main": [
+    "dist/draw2d.js",
+    "dist/jquery.autoresize.js",
+    "dist/jquery.contextmenu.js",
+    "dist/jquery-touch_punch.js",
+    "dist/json2.js",
+    "dist/patched_canvg.js",
+    "dist/patched_Class.js",
+    "dist/patched_raphael.js",
+    "dist/pathfinding-browser.min.js",
+    "dist/rgbcolor.js",
+    "dist/shifty.js",
+    "dist/StackBlur.js"
+  ],
+  "ignore": [],
+  "dependencies": {
+    "jquery": "~1.10.2"
+  }
+}
