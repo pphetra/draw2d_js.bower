@@ -17,6 +17,6 @@
   "ignore": [],
   "dependencies": {
     "jquery": "~1.10.2",
-    "shifty": "~1.4.2",
+    "shifty": "~1.4.2"
   }
 }
