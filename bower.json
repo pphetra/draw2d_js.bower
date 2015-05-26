@@ -12,11 +12,11 @@
     "dist/patched_raphael.js",
     "dist/pathfinding-browser.min.js",
     "dist/rgbcolor.js",
-    "dist/shifty.js",
     "dist/StackBlur.js"
   ],
   "ignore": [],
   "dependencies": {
-    "jquery": "~1.10.2"
+    "jquery": "~1.10.2",
+    "shifty": "~1.4.2",
   }
 }
