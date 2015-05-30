@@ -9989,7 +9989,7 @@ draw2d.policy.canvas.ConnectionInterceptorPolicy = draw2d.policy.canvas.CanvasPo
         // It is not possible to create a loop back connection at the moment.
         // Reason: no connection router implemented for this case
         if((draggedFigure instanceof draw2d.Port) && (dropTarget instanceof draw2d.Port)){
-	        if(draggedFigure.getParent().getId() === dropTarget.getParent().getId()){
+	        if(draggedFigure.getParent() === dropTarget.getParent()){
 	            return null;
 	         }
         }
@@ -14848,7 +14848,7 @@ draw2d.policy.port.IntrusivePortsFeedbackPolicy = draw2d.policy.port.PortFeedbac
  *   Library is under GPL License (GPL)
  *   Copyright (c) 2012 Andreas Herz
  ****************************************/draw2d.Configuration = {
-    version : "5.5.2",
+    version : "5.5.3",
     i18n : {
         command : {
             move : "Move Shape",
@@ -28709,7 +28709,9 @@ draw2d.Port = draw2d.shape.basic.Circle.extend({
     NAME : "draw2d.Port",
 
     DEFAULT_BORDER_COLOR:new draw2d.util.Color("#1B1B1B"),
-    
+
+    MAX_SAFE_INTEGER : 9007199254740991,
+
     /**
      * @constructor
      * Creates a new Node element which are not assigned to any canvas.
@@ -28770,7 +28772,7 @@ draw2d.Port = draw2d.shape.basic.Circle.extend({
         // for dynamic diagrams. A Port can have a value which is set by a connector
         //
         this.value = null; 
-        this.maxFanOut = Number.MAX_VALUE;
+        this.maxFanOut = this.MAX_SAFE_INTEGER;
         
         this.setCanSnapToHelper(false);
         
@@ -29500,7 +29502,17 @@ draw2d.Port = draw2d.shape.basic.Circle.extend({
         this._super(memento);
 
         if(typeof memento.maxFanOut !== "undefined"){
-            this.maxFanOut = Math.max(1,parseInt(memento.maxFanOut));
+            // Big bug in the past.
+            // I used Number.MAX_VALUE as maxFanOut which is 1.7976931348623157e+308
+            // parseInt creates "1" during the reading of the JSON - which is crap.
+            // BIG BIG BUG!!! my fault.
+            // Now check if the memenot.maxFanOut is a number and take this without crappy parsing.
+            if(typeof memento.maxFanOut ==="number"){
+                this.maxFanOut = memento.maxFanOut;
+            }
+            else {
+                this.maxFanOut = Math.max(1, parseInt(memento.maxFanOut));
+            }
         }
         
         return this;
