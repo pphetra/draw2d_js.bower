@@ -1,11 +1,4 @@
-
-// THIS FILES IS PATCHED BY FREEGROUP
-// you can't replace this file with a new version without migrate all changes
-// tagged with "FREEGROUP"
-//
-//
-
-/*
+/* 
  * Simple JavaScript Inheritance 
  * By John Resig http://ejohn.org/ 
  * MIT Licensed. 
@@ -107,8 +100,7 @@ n instanceof Ninja && n instanceof Person && n instanceof Class
 
     // And make this class extendable 
     Class.extend = arguments.callee; 
-
-    // FREEGROUP
+    
     // EXTENSION BY Draw2D.org to inject methods into an existing class to provide plugins or 
     // bugfixes for further releases 
     // 

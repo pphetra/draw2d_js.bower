@@ -1,10 +1,12 @@
-
-// THIS FILES IS PATCHED BY FREEGROUP
-// you can't replace this file with a new version without migrate all changes
-// tagged with "FREEGROUP"
-//
-
-
+/*
+ * ==============================================================================
+ * IMPORTANT NOTE: 
+ * This file is patched by a.herz.
+ * The original code didn't work together with raphaelJS and stroke.dasharray.
+ * Please search for " PATCHED BY FREEGROUP" to find all patches.
+ * ==============================================================================
+ * 
+ *
 /*
  * canvg.js - Javascript SVG parser and renderer on Canvas
  * MIT Licensed 

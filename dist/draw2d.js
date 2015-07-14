@@ -114,6 +114,136 @@ if (!Array.prototype.reduce) {
   };
 }
 
+
+// Production steps of ECMA-262, Edition 5, 15.4.4.18
+// Reference: http://es5.github.io/#x15.4.4.18
+if (!Array.prototype.forEach) {
+
+  Array.prototype.forEach = function(callback, thisArg) {
+
+    var T, k;
+
+    if (this == null) {
+      throw new TypeError(' this is null or not defined');
+    }
+
+    // 1. Let O be the result of calling ToObject passing the |this| value as the argument.
+    var O = Object(this);
+
+    // 2. Let lenValue be the result of calling the Get internal method of O with the argument "length".
+    // 3. Let len be ToUint32(lenValue).
+    var len = O.length >>> 0;
+
+    // 4. If IsCallable(callback) is false, throw a TypeError exception.
+    // See: http://es5.github.com/#x9.11
+    if (typeof callback !== "function") {
+      throw new TypeError(callback + ' is not a function');
+    }
+
+    // 5. If thisArg was supplied, let T be thisArg; else let T be undefined.
+    if (arguments.length > 1) {
+      T = thisArg;
+    }
+
+    // 6. Let k be 0
+    k = 0;
+
+    // 7. Repeat, while k < len
+    while (k < len) {
+
+      var kValue;
+
+      // a. Let Pk be ToString(k).
+      //   This is implicit for LHS operands of the in operator
+      // b. Let kPresent be the result of calling the HasProperty internal method of O with argument Pk.
+      //   This step can be combined with c
+      // c. If kPresent is true, then
+      if (k in O) {
+
+        // i. Let kValue be the result of calling the Get internal method of O with argument Pk.
+        kValue = O[k];
+
+        // ii. Call the Call internal method of callback with T as the this value and
+        // argument list containing kValue, k, and O.
+        callback.call(T, kValue, k, O);
+      }
+      // d. Increase k by 1.
+      k++;
+    }
+    // 8. return undefined
+  };
+}
+
+// Production steps of ECMA-262, Edition 5, 15.4.4.14
+// Reference: http://es5.github.io/#x15.4.4.14
+if (!Array.prototype.indexOf) {
+  Array.prototype.indexOf = function(searchElement, fromIndex) {
+
+    var k;
+
+    // 1. Let O be the result of calling ToObject passing
+    //    the this value as the argument.
+    if (this == null) {
+      throw new TypeError('"this" is null or not defined');
+    }
+
+    var O = Object(this);
+
+    // 2. Let lenValue be the result of calling the Get
+    //    internal method of O with the argument "length".
+    // 3. Let len be ToUint32(lenValue).
+    var len = O.length >>> 0;
+
+    // 4. If len is 0, return -1.
+    if (len === 0) {
+      return -1;
+    }
+
+    // 5. If argument fromIndex was passed let n be
+    //    ToInteger(fromIndex); else let n be 0.
+    var n = +fromIndex || 0;
+
+    if (Math.abs(n) === Infinity) {
+      n = 0;
+    }
+
+    // 6. If n >= len, return -1.
+    if (n >= len) {
+      return -1;
+    }
+
+    // 7. If n >= 0, then Let k be n.
+    // 8. Else, n<0, Let k be len - abs(n).
+    //    If k is less than 0, then let k be 0.
+    k = Math.max(n >= 0 ? n : len - Math.abs(n), 0);
+
+    // 9. Repeat, while k < len
+    while (k < len) {
+      // a. Let Pk be ToString(k).
+      //   This is implicit for LHS operands of the in operator
+      // b. Let kPresent be the result of calling the
+      //    HasProperty internal method of O with argument Pk.
+      //   This step can be combined with c
+      // c. If kPresent is true, then
+      //    i.  Let elementK be the result of calling the Get
+      //        internal method of O with the argument ToString(k).
+      //   ii.  Let same be the result of applying the
+      //        Strict Equality Comparison Algorithm to
+      //        searchElement and elementK.
+      //  iii.  If same is true, return k.
+      if (k in O && O[k] === searchElement) {
+        return k;
+      }
+      k++;
+    }
+    return -1;
+  };
+}
+
+
+if(!Number.MAX_SAFE_INTEGER){
+  Number.MAX_SAFE_INTEGER = 9007199254740991; // Math.pow(2, 53) - 1
+}
 /*****************************************
  *   Library is under GPL License (GPL)
  *   Copyright (c) 2012 Andreas Herz
@@ -1164,15 +1294,21 @@ draw2d.util.ArrayList = Class.extend({
 
     /**
      * @method
-     * removes all given elements in the Vector
+     * removes all given elements in the ArrayList
      * 
      * @param {draw2d.util.ArrayList} elements The elements to remove
      */
-     removeAll:function(elements)
-     {
-         $.each(elements, $.proxy(function(i,e){
-             this.remove(e);
-         },this));
+     removeAll:function(elements) {
+
+        if (elements instanceof draw2d.util.ArrayList) {
+            elements = elements.data;
+        }
+
+        if($.isArray(elements)){
+            $.each(elements, $.proxy(function (i, e) {
+                this.remove(e);
+            }, this));
+        }
         
         return this;
      },
@@ -2003,13 +2139,34 @@ draw2d.geo.Point = Class.extend({
     /**
      * @method 
      * Return a new Point translated with the x/y values of the hands over point.
-     * 
-     * @param {draw2d.geo.Point} other the offset to add for the new point.
+     *
+     * @param {draw2d.geo.Point|Number} x the x translation or the complete point to translate
+     * @param {Number} [y] the y translation. Required if x is a simple number instead of a draw2d.geo.Point
      * @return {draw2d.geo.Point} The new translated point.
      */
-    getTranslated : function(other)
+    translated : function(x,y)
     {
+        var other = new draw2d.geo.Point(x,y);
         return new draw2d.geo.Point(this.x + other.x, this.y + other.y);
+    },
+    /**
+     * @deprecated
+     */
+    getTranslated : function(x,y){return this.translated(x,y);},
+
+    /**
+     * @method
+     * Return a new Point scaled with the x/y values of the hands over point.
+     *
+     * @param {Number} factor the factor to scaled the new point.
+     * @return {draw2d.geo.Point} The new translated point.
+     */
+    scale : function(factor)
+    {
+        this.x *= factor;
+        this.y *= factor;
+        this.adjustBoundary();
+        return this;
     },
 
     /**
@@ -2019,10 +2176,13 @@ draw2d.geo.Point = Class.extend({
      * @param {Number} factor the factor to scaled the new point.
      * @return {draw2d.geo.Point} The new translated point.
      */
-    getScaled : function(factor)
+    scaled : function(factor)
     {
         return new draw2d.geo.Point(this.x * factor, this.y * factor);
     },
+
+    /* @deprecated */
+    getScaled : function(factor){ return this.scaled(factor);},
 
     /**
      * @method 
@@ -2214,7 +2374,6 @@ draw2d.geo.Rectangle = draw2d.geo.Point.extend({
      **/
     scale:function( dw, dh)
     {
-        
       this.w +=(dw);
       this.h +=(dh);
       this.x -=(dw/2);
@@ -2222,8 +2381,46 @@ draw2d.geo.Rectangle = draw2d.geo.Point.extend({
       this.adjustBoundary();
       return this;
     },
-    
-    /**
+
+	/**
+	 * @method
+	 * Returns a copy of the translated rectangle
+	 *
+	 * @param {draw2d.geo.Point|Number} x the x translation or the complete point to translate
+	 * @param {Number} [y] the y translation. Required if x is a simple number instead of a draw2d.geo.Point
+	 * @return {draw2d.geo.Rectangle} The new translated rectangle.
+	 *
+	 * @since 5.6.0
+	 */
+	translate : function(x,y)
+	{
+		var other = new draw2d.geo.Point(x,y);
+		this.x += other.x;
+		this.y += other.y;
+		this.adjustBoundary();
+
+		return this;
+	},
+
+
+	/**
+	 * @method
+	 * Returns a copy of the translated rectangle
+	 *
+	 * @param {draw2d.geo.Point|Number} x the x translation or the complete point to translate
+	 * @param {Number} [y] the y translation. Required if x is a simple number instead of a draw2d.geo.Point
+	 * @return {draw2d.geo.Rectangle} The new translated rectangle.
+	 *
+	 * @since 5.6.0
+	 */
+	translated : function(x,y)
+	{
+		var other = new draw2d.geo.Point(x,y);
+		return new draw2d.geo.Rectangle(this.x + other.x, this.y + other.y, this.w, this.h);
+	},
+
+
+	/**
 	 * Sets the parameters of this Rectangle from the Rectangle passed in and
 	 * returns this for convenience.<br>
 	 * <br>
@@ -2377,7 +2574,18 @@ draw2d.geo.Rectangle = draw2d.geo.Point.extend({
 	{
 	  return new draw2d.geo.Point(this.x+this.w,this.y);
 	},
-		
+
+	/**
+	 * @method
+	 * The center left  of the dimension object.
+	 *
+	 * @return {draw2d.geo.Point} a new point objects which holds the coordinates
+	 **/
+	getCenterLeft:function()
+	{
+		return new draw2d.geo.Point(this.x,this.y+(this.h/2));
+	},
+
 	/**
 	 * @method
 	 * The bottom left corner of the dimension object.
@@ -2573,7 +2781,7 @@ draw2d.geo.Rectangle = draw2d.geo.Point.extend({
 				return -((cx + cw) - ox);
 		}
 
-		throw "Unknown data type of parameter for distance calculation in draw2d.geo.Rectangle.getDistnace(..)";
+		throw "Unknown data type of parameter for distance calculation in draw2d.geo.Rectangle.getDistance(..)";
 	},
 	
     
@@ -2839,8 +3047,21 @@ draw2d.geo.Rectangle = draw2d.geo.Point.extend({
         }
         return result;
     },
-    
-    /**
+
+	/**
+	 * @method
+	 * Returns a copy of this rectangle
+	 *
+	 *
+	 * @returns {draw2d.geo.Rectangle}
+	 * @since 5.6.0
+	 */
+	clone : function()
+	{
+		return new draw2d.geo.Rectangle(this.x, this.y, this.w, this.h);
+	},
+
+	/**
      * @method
      * converts the rectangle to JSON representation. required for the draw2d.io.Writer
      * 
@@ -6578,7 +6799,7 @@ draw2d.layout.connection.InteractiveManhattanConnectionRouter = draw2d.layout.co
     	       //
 	           case draw2d.geo.Rectangle.DIRECTION_UP:
 	             conn.setVertex(1,fromPt.x, min(fromPt.y-10,p1.y)); // p1
-                 conn.setVertex(2,p2.x, min(fromPt.y-10,p1.y)); // p2
+                 conn.setVertex(2,p2.x    , min(fromPt.y-10,p1.y)); // p2
                  break;
                //        +
                //     p0 |      
@@ -6588,7 +6809,7 @@ draw2d.layout.connection.InteractiveManhattanConnectionRouter = draw2d.layout.co
                //
 	           case draw2d.geo.Rectangle.DIRECTION_DOWN:
                  conn.setVertex(1,fromPt.x, max(fromPt.y+10,p1.y)); // p1
-                 conn.setVertex(2,p2.x, max(fromPt.y+10,p1.y));     // p2
+                 conn.setVertex(2,p2.x    , max(fromPt.y+10,p1.y));     // p2
     	         break;
 	       }
 	    }
@@ -6610,7 +6831,7 @@ draw2d.layout.connection.InteractiveManhattanConnectionRouter = draw2d.layout.co
     	         conn.setVertex(vertexCount-2,max(toPt.x+10,p1.x),toPt.y);  // p1
     	         conn.setVertex(vertexCount-3,max(toPt.x+10,p1.x),p2.y);    // p2
     	         break;
-    	         
+
     	      //    .
     	      //    .
     	      //    . p1         p0
@@ -6630,8 +6851,8 @@ draw2d.layout.connection.InteractiveManhattanConnectionRouter = draw2d.layout.co
     	      //     p0 +  
     	      //
     	      case draw2d.geo.Rectangle.DIRECTION_UP:
-    	         conn.setVertex(vertexCount-2, toPt.x,max(toPt.y+10,p1.y));  // p1
-    	         conn.setVertex(vertexCount-3, p2.x  ,max(toPt.y+10,p1.y));  // p2
+    	         conn.setVertex(vertexCount-2, toPt.x,min(toPt.y+10,p1.y));  // p1
+    	         conn.setVertex(vertexCount-3, p2.x  ,min(toPt.y+10,p1.y));  // p2
     	         break;
     	         
     	      //        +    
@@ -6676,7 +6897,7 @@ draw2d.layout.connection.InteractiveManhattanConnectionRouter = draw2d.layout.co
        var toPt    = conn.getEndPoint();
        var toDir   = conn.getTarget().getConnectionDirection(conn, conn.getSource());
 
-       if(segmentCoaddunt<=5){
+       if(segmentCount<=5){
     	   //     ___
     	   //    |   |      From
     	   //    | 1 |-----+
@@ -7855,7 +8076,7 @@ draw2d.layout.connection.MuteableManhattanConnectionRouter = draw2d.layout.conne
 
                 // 2
                 if (startNormal.dot(direction) < 0)
-                    i = startNormal.similarity(start.getTranslated(startNormal.getScaled(10)));
+                    i = startNormal.similarity(start.translated(startNormal.getScaled(10)));
                 else {
                     if (horizontal) 
                         i = average.y;
@@ -7867,7 +8088,7 @@ draw2d.layout.connection.MuteableManhattanConnectionRouter = draw2d.layout.conne
                 horizontal = !horizontal;
 
                 if (endNormal.dot(direction) > 0){
-                    i = endNormal.similarity(end.getTranslated(endNormal.getScaled(10)));
+                    i = endNormal.similarity(end.translated(endNormal.getScaled(10)));
                 }
                 else {
                     if (horizontal) {
@@ -7884,15 +8105,15 @@ draw2d.layout.connection.MuteableManhattanConnectionRouter = draw2d.layout.conne
             if (startNormal.dot(endNormal) > 0) {
                 //1
                 if (startNormal.dot(direction) >= 0)
-                    i = startNormal.similarity(start.getTranslated(startNormal.getScaled(10)));
+                    i = startNormal.similarity(start.translated(startNormal.getScaled(10)));
                 else
-                    i = endNormal.similarity(end.getTranslated(endNormal.getScaled(10)));
+                    i = endNormal.similarity(end.translated(endNormal.getScaled(10)));
                 positions.add( i);
                 horizontal = !horizontal;
             } else {
                 //3 or 1
                 if (startNormal.dot(direction) < 0) {
-                    i = startNormal.similarity(start.getTranslated(startNormal.getScaled(10)));
+                    i = startNormal.similarity(start.translated(startNormal.getScaled(10)));
                     positions.add(i);
                     horizontal = !horizontal;
                 }
@@ -7907,7 +8128,7 @@ draw2d.layout.connection.MuteableManhattanConnectionRouter = draw2d.layout.conne
                     if (horizontal) {
                         var j = average.y;
 
-                        var next = endNormal.similarity(end.getTranslated(endNormal.getScaled(10)));
+                        var next = endNormal.similarity(end.translated(endNormal.getScaled(10)));
 
                         var trial = new draw2d.geo.Ray((positions.get(positions.getSize() - 1)), j);
                         var figure = this.findFirstFigureAtStraightLine(canvas, trial, this.LEFT, draw2d.util.ArrayList.EMPTY_LIST);
@@ -7925,7 +8146,7 @@ draw2d.layout.connection.MuteableManhattanConnectionRouter = draw2d.layout.conne
                         if (figure == null)
                             i = average.x;
                         else {
-                            i = Math.min(average.x, start.getTranslated(new draw2d.geo.Ray(3 * (figure.getBoundingBox().x - start.x) / 4, 0)).x);
+                            i = Math.min(average.x, start.translated(new draw2d.geo.Ray(3 * (figure.getBoundingBox().x - start.x) / 4, 0)).x);
                             i = Math.max(start.x, i);
                         }
                         i = this.adjust(conn, i);
@@ -9718,14 +9939,17 @@ draw2d.policy.canvas.CanvasPolicy = draw2d.policy.EditPolicy.extend({
      * @constructor 
      * Creates a new Router object
      */
-    init: function( attr, setter, getter){
+    init: function( attr, setter, getter)
+    {
         this._super( attr, setter, getter);
     },
     
-    onInstall: function(canvas){
+    onInstall: function(canvas)
+    {
     },
     
-    onUninstall: function(canvas){
+    onUninstall: function(canvas)
+    {
     },
     
     /**
@@ -9742,7 +9966,8 @@ draw2d.policy.canvas.CanvasPolicy = draw2d.policy.EditPolicy.extend({
      * 
      * @template
      */
-    onClick: function(figure, mouseX, mouseY, shiftKey, ctrlKey){
+    onClick: function(figure, mouseX, mouseY, shiftKey, ctrlKey)
+    {
     },
     
     /**
@@ -9755,7 +9980,8 @@ draw2d.policy.canvas.CanvasPolicy = draw2d.policy.EditPolicy.extend({
      * @param {Boolean} ctrlKey true if the ctrl key has been pressed during the event
      * @template
      */
-    onMouseMove:function(canvas, x, y, shiftKey, ctrlKey){
+    onMouseMove:function(canvas, x, y, shiftKey, ctrlKey)
+    {
     },
     
     /**
@@ -9772,7 +9998,8 @@ draw2d.policy.canvas.CanvasPolicy = draw2d.policy.EditPolicy.extend({
      * 
      * @template
      */
-    onDoubleClick: function(figure, mouseX, mouseY, shiftKey, ctrlKey){
+    onDoubleClick: function(figure, mouseX, mouseY, shiftKey, ctrlKey)
+    {
     },
     
     
@@ -9784,7 +10011,8 @@ draw2d.policy.canvas.CanvasPolicy = draw2d.policy.EditPolicy.extend({
      * @param {draw2d.geo.Point} clientPos
      * @returns {draw2d.geo.Point} the contraint position of th efigure
      */
-    snap: function(canvas, figure, clientPos){
+    snap: function(canvas, figure, clientPos)
+    {
         return clientPos;
     },
 
@@ -9797,7 +10025,8 @@ draw2d.policy.canvas.CanvasPolicy = draw2d.policy.EditPolicy.extend({
      * @param {Boolean} shiftKey true if the shift key has been pressed during this event
      * @param {Boolean} ctrlKey true if the ctrl key has been pressed during the event
      */
-    onMouseDown:function(canvas, x, y, shiftKey, ctrlKey){
+    onMouseDown:function(canvas, x, y, shiftKey, ctrlKey)
+    {
         
     },
     
@@ -9811,7 +10040,8 @@ draw2d.policy.canvas.CanvasPolicy = draw2d.policy.EditPolicy.extend({
      * @param {Number} dy2 The y diff since the last call of this dragging operation
      * @template
      */
-    onMouseDrag:function(canvas, dx, dy, dx2, dy2){
+    onMouseDrag:function(canvas, dx, dy, dx2, dy2)
+    {
     },
     
     /**
@@ -9824,7 +10054,8 @@ draw2d.policy.canvas.CanvasPolicy = draw2d.policy.EditPolicy.extend({
      * @param {Boolean} ctrlKey true if the ctrl key has been pressed during the event
      * @template
      */
-    onMouseUp: function(figure, x, y, shiftKey, ctrlKey){
+    onMouseUp: function(figure, x, y, shiftKey, ctrlKey)
+    {
     },
     
     
@@ -9840,7 +10071,8 @@ draw2d.policy.canvas.CanvasPolicy = draw2d.policy.EditPolicy.extend({
      * @template
      * @since 4.4.0
      */
-    onRightMouseDown: function(figure, x, y, shiftKey, ctrlKey){
+    onRightMouseDown: function(figure, x, y, shiftKey, ctrlKey)
+    {
     },
     
   
@@ -9862,7 +10094,8 @@ draw2d.policy.canvas.CanvasPolicy = draw2d.policy.EditPolicy.extend({
      * @param color
      * @returns {String}
      */
-    createMonochromGif: function(w,h,d,color) {
+    createMonochromGif: function(w,h,d,color)
+    {
     	color = new draw2d.util.Color(color);
         var r = String.fromCharCode(w%256) + String.fromCharCode(w/256) + String.fromCharCode(h%256) + String.fromCharCode(h/256) ;
         var gif = "GIF89a" + r + "\xf0\0\0\xff\xff\xff" + String.fromCharCode(color.red) + String.fromCharCode(color.green) + String.fromCharCode(color.blue) + "\x21\xf9\4\1\0\0\0\0,\0\0\0\0" + r + "\0\2";
@@ -10332,7 +10565,7 @@ draw2d.policy.canvas.SingleSelectionPolicy =  draw2d.policy.canvas.SelectionPoli
         if (figure !== canvas.getSelection().getPrimary() && figure !== null && figure.isSelectable() === true) {
             this.select(canvas,figure);
 
-            // its a line
+            // it's a line
             if (figure instanceof draw2d.shape.basic.Line) {
                 // you can move a line with Drag&Drop...but not a connection.
                 // A Connection is fixed linked with the corresponding ports.
@@ -10399,8 +10632,15 @@ draw2d.policy.canvas.SingleSelectionPolicy =  draw2d.policy.canvas.SelectionPoli
        // decision.
        //
        else if(this.mouseDownElement!==null && !(this.mouseDownElement instanceof draw2d.Connection)){
-           this.mouseDownElement.onPanning(dx, dy, dx2, dy2);
-       } 
+           if(this.mouseDownElement.panningDelegate!==null){
+               this.mouseDownElement.panningDelegate.fireEvent("panning", {dx:dx,dy:dy,dx2:dx2,dy2:dy2});
+               this.mouseDownElement.panningDelegate.onPanning(dx, dy, dx2, dy2);
+           }
+           else{
+               this.mouseDownElement.fireEvent("panning", {dx:dx,dy:dy,dx2:dx2,dy2:dy2});
+               this.mouseDownElement.onPanning(dx, dy, dx2, dy2);
+           }
+       }
     },
     
     /**
@@ -10464,7 +10704,20 @@ draw2d.policy.canvas.SingleSelectionPolicy =  draw2d.policy.canvas.SelectionPoli
 
             this.mouseDraggingElement = null;
         }
-        
+        // Connection didn't support panning at the moment. There is no special reason for that. Just an interaction
+        // decision.
+        //
+        else if(this.mouseDownElement!==null && !(this.mouseDownElement instanceof draw2d.Connection)){
+            if(this.mouseDownElement.panningDelegate!==null){
+                this.mouseDownElement.panningDelegate.fireEvent("panningEnd");
+                this.mouseDownElement.panningDelegate.onPanningEnd();
+            }
+            else{
+                this.mouseDownElement.fireEvent("panningEnd");
+                this.mouseDownElement.onPanningEnd();
+            }
+        }
+
         // Reset the current selection if the user click in the blank canvas.
         // Don't reset the selection if the user pan the canvas
         //
@@ -10608,8 +10861,15 @@ draw2d.policy.canvas.GhostMoveSelectionPolicy =  draw2d.policy.canvas.SingleSele
        // decision.
        //
        else if(this.mouseDownElement!==null && !(this.mouseDownElement instanceof draw2d.Connection)){
-           this.mouseDownElement.onPanning(dx, dy, dx2, dy2);
-       } 
+            if(this.mouseDownElement.panningDelegate!==null){
+                this.mouseDownElement.panningDelegate.fireEvent("panning", {dx:dx,dy:dy,dx2:dx2,dy2:dy2});
+                this.mouseDownElement.panningDelegate.onPanning(dx, dy, dx2, dy2);
+            }
+            else{
+                this.mouseDownElement.fireEvent("panning", {dx:dx,dy:dy,dx2:dx2,dy2:dy2});
+                this.mouseDownElement.onPanning(dx, dy, dx2, dy2);
+            }
+       }
     },
     
     /**
@@ -10820,7 +11080,7 @@ draw2d.policy.canvas.BoundingboxSelectionPolicy =  draw2d.policy.canvas.SingleSe
       */
      setDecisionMode: function(useIntersectionMode)
      {
-         if(flag===true){
+         if(useIntersectionMode===true){
              this.decision = this.intersectsMode;
          }
          else{
@@ -10926,7 +11186,17 @@ draw2d.policy.canvas.BoundingboxSelectionPolicy =  draw2d.policy.canvas.SingleSe
          	// drag/drop operation
             currentSelection = canvas.getSelection().getAll();
             currentSelection.each(function(i,figure){
-                 var canDragStart= figure.onDragStart(figure.getAbsoluteX(),figure.getAbsoluteY(), shiftKey, ctrlKey);
+                var fakeDragX = 1;
+                var fakeDragY = 1;
+
+                var handleRect = figure.getHandleBBox();
+                if(handleRect!==null){
+                    handleRect.translate(figure.getAbsolutePosition().scale(-1));
+                    fakeDragX = handleRect.x+1;
+                    fakeDragY = handleRect.y+1;
+                }
+
+                var canDragStart= figure.onDragStart(fakeDragX,fakeDragY, shiftKey, ctrlKey);
                  // its a line
                  if (figure instanceof draw2d.shape.basic.Line) {
                      
@@ -10979,7 +11249,7 @@ draw2d.policy.canvas.BoundingboxSelectionPolicy =  draw2d.policy.canvas.SingleSe
                 });
                 this.boundingBoxFigure2.setCanvas(canvas);
            }
-            
+
             if (this.boundingBoxFigure1!==null) {
             	this.boundingBoxFigure1.setDimension(Math.abs(dx),Math.abs(dy));
             	this.boundingBoxFigure1.setPosition(this.x + Math.min(0,dx), this.y + Math.min(0,dy));
@@ -11035,7 +11305,16 @@ draw2d.policy.canvas.BoundingboxSelectionPolicy =  draw2d.policy.canvas.SingleSe
             	var selectionRect = this.boundingBoxFigure1.getBoundingBox();
              	canvas.getFigures().each(function(i,figure){
             		if(figure.isSelectable() === true && _this.decision(figure.getBoundingBox(),selectionRect)){
-                        var canDragStart = figure.onDragStart(figure.getAbsoluteX(),figure.getAbsoluteY(), shiftKey, ctrlKey);
+                        var fakeDragX = 1;
+                        var fakeDragY = 1;
+
+                        var handleRect = figure.getHandleBBox();
+                        if(handleRect!==null){
+                            handleRect.translate(figure.getAbsolutePosition().scale(-1));
+                            fakeDragX = handleRect.x+1;
+                            fakeDragY = handleRect.y+1;
+                        }
+                        var canDragStart = figure.onDragStart(fakeDragX,fakeDragY, shiftKey, ctrlKey);
                         if(canDragStart===true){
                             _this.select(canvas,figure,false);
                         }
@@ -11488,7 +11767,23 @@ draw2d.policy.canvas.CoronaDecorationPolicy = draw2d.policy.canvas.DecorationPol
 /*****************************************
  *   Library is under GPL License (GPL)
  *   Copyright (c) 2012 Andreas Herz
- ****************************************/
+ ****************************************/draw2d.SnapToHelper = {};
+
+draw2d.SnapToHelper.NORTH   =  1;
+draw2d.SnapToHelper.SOUTH   =  4;
+draw2d.SnapToHelper.WEST    =  8;
+draw2d.SnapToHelper.EAST    = 16;
+draw2d.SnapToHelper.CENTER_H= 32;
+draw2d.SnapToHelper.CENTER_V= 642;
+
+draw2d.SnapToHelper.NORTH_EAST  = draw2d.SnapToHelper.NORTH | draw2d.SnapToHelper.EAST;
+draw2d.SnapToHelper.NORTH_WEST  = draw2d.SnapToHelper.NORTH | draw2d.SnapToHelper.WEST;
+draw2d.SnapToHelper.SOUTH_EAST  = draw2d.SnapToHelper.SOUTH | draw2d.SnapToHelper.EAST;
+draw2d.SnapToHelper.SOUTH_WEST  = draw2d.SnapToHelper.SOUTH | draw2d.SnapToHelper.WEST;
+draw2d.SnapToHelper.NORTH_SOUTH = draw2d.SnapToHelper.NORTH | draw2d.SnapToHelper.SOUTH;
+draw2d.SnapToHelper.EAST_WEST   = draw2d.SnapToHelper.EAST | draw2d.SnapToHelper.WEST;
+draw2d.SnapToHelper.NSEW        = draw2d.SnapToHelper.NORTH_SOUTH | draw2d.SnapToHelper.EAST_WEST;
+
 /**
  * @class draw2d.policy.canvas.SnapToEditPolicy
  * 
@@ -11508,9 +11803,9 @@ draw2d.policy.canvas.SnapToEditPolicy = draw2d.policy.canvas.CanvasPolicy.extend
      * Creates a new constraint policy for snap to grid
      * 
      */
-    init: function( )
+    init: function( attr, setter, getter)
     {
-        this._super();
+        this._super( attr, setter, getter);
     },
 
 
@@ -11954,21 +12249,6 @@ draw2d.policy.canvas.ShowChessboardEditPolicy = draw2d.policy.canvas.CanvasPolic
  *   Library is under GPL License (GPL)
  *   Copyright (c) 2012 Andreas Herz
  ****************************************/
-draw2d.SnapToHelper = {};
-
-draw2d.SnapToHelper.NORTH =  1;
-draw2d.SnapToHelper.SOUTH =  4;
-draw2d.SnapToHelper.WEST  =  8;
-draw2d.SnapToHelper.EAST  = 16;
-draw2d.SnapToHelper.CENTER= 32;
-
-draw2d.SnapToHelper.NORTH_EAST  = draw2d.SnapToHelper.NORTH | draw2d.SnapToHelper.EAST;
-draw2d.SnapToHelper.NORTH_WEST  = draw2d.SnapToHelper.NORTH | draw2d.SnapToHelper.WEST;
-draw2d.SnapToHelper.SOUTH_EAST  = draw2d.SnapToHelper.SOUTH | draw2d.SnapToHelper.EAST;
-draw2d.SnapToHelper.SOUTH_WEST  = draw2d.SnapToHelper.SOUTH | draw2d.SnapToHelper.WEST;
-draw2d.SnapToHelper.NORTH_SOUTH = draw2d.SnapToHelper.NORTH | draw2d.SnapToHelper.SOUTH;
-draw2d.SnapToHelper.EAST_WEST   = draw2d.SnapToHelper.EAST | draw2d.SnapToHelper.WEST;
-draw2d.SnapToHelper.NSEW        = draw2d.SnapToHelper.NORTH_SOUTH | draw2d.SnapToHelper.EAST_WEST;
 
 /**
  * @class draw2d.policy.canvas.SnapToGeometryEditPolicy
@@ -11987,25 +12267,65 @@ draw2d.policy.canvas.SnapToGeometryEditPolicy = draw2d.policy.canvas.SnapToEditP
     NAME : "draw2d.policy.canvas.SnapToGeometryEditPolicy",
     
     SNAP_THRESHOLD   : 3,
-    LINE_COLOR       : "#1387E6",
     FADEOUT_DURATION : 300,
     
     /**
      * @constructor 
-     * Creates a new constraint policy for snap to grid
+     * Creates a new constraint policy for snap to geometry
      * 
-     * @param {Number} grid the grid width of the canvas
      */
-    init: function( )
-    {
-        this._super();
-        
+    init: function( attr, setter, getter){
+        this.lineColor = null;
+
+        this._super(
+            $.extend({
+                lineColor: "#1387E6"
+            },attr),
+            $.extend({
+                /** @attr {draw2d.util.Color} color the line color of the snapTo lines */
+                lineColor : this.setLineColor
+            }, setter),
+            $.extend({
+                lineColor : this.getLineColor
+            }, getter));
+
         this.rows=null;
         this.cols=null;
         this.vline = null;
         this.hline = null;
         this.canvas = null;
     },
+
+
+    /**
+     * @method
+     * Set the color of the snap line.
+     *
+     *      // Alternatively you can use the attr method:
+     *      policy.attr({
+     *        lineColor: color
+     *      });
+     *
+     * @param {draw2d.util.Color|String} color The new color of the line.
+     **/
+    setLineColor:function( color)
+    {
+        this.lineColor = new draw2d.util.Color(color);
+        return this;
+    },
+
+    /**
+     * @method
+     * Return the current paint color.
+     *
+     * @return {draw2d.util.Color} The paint color of the line.
+     * @since 5.6.1
+     **/
+    getLineColor:function()
+    {
+        return this.lineColor;
+    },
+
 
     onInstall: function(canvas)
     {
@@ -12038,105 +12358,146 @@ draw2d.policy.canvas.SnapToGeometryEditPolicy = draw2d.policy.canvas.SnapToEditP
     /**
      * @method
      * Adjust the coordinates to the canvas neighbours
-     * 
-     * @param figure
+     *
+     * @param canvas the related canvas
+     * @param figure the figure to snap
      * @param {draw2d.geo.Point} pos
-     * @returns {draw2d.geo.Point} the contraint position of th efigure
+     *
+     * @returns {draw2d.geo.Point} the constraint position of the figure
      */
-    snap: function(canvas, figure, pos)
+    snap: function(canvas, figure, pos, origPos)
     {
-        
+
+        var allowXChanges = pos.x=== origPos.x;
+        var allowYChanges = pos.y=== origPos.y;
+
+        // Coordinates already snapped to an x/y coordinate.
+        // Don't change them and in this case no further calculation is requried.
+        //
+        if(!allowXChanges && !allowYChanges){
+            return pos;
+        }
+
         if(figure instanceof draw2d.ResizeHandle)
         {
            var snapPoint = figure.getSnapToGridAnchor();
            pos.x+= snapPoint.x;
            pos.y+= snapPoint.y;
-           var result = new draw2d.geo.Point(pos.x,pos.y);
 
            var snapDirections = figure.getSnapToDirection();
-           var direction = this.snapPoint(snapDirections, pos,result);
+           var result = this.snapPoint(snapDirections, pos);
 
            // Show a vertical line if the snapper has modified the inputPoint
            //
-           if((snapDirections & draw2d.SnapToHelper.EAST_WEST) && !(direction & draw2d.SnapToHelper.EAST_WEST))
-              this.showVerticalLine(result.x);
-           else
-              this.hideVerticalLine();
+           if(allowXChanges && (snapDirections & draw2d.SnapToHelper.EAST_WEST) && !(result.edge & draw2d.SnapToHelper.EAST_WEST)) {
+               this.showVerticalLine(figure, draw2d.SnapToHelper.WEST, result.point.x);
+           }
+           else {
+               this.hideVerticalLine();
+           }
 
            // Show a horizontal line if the snapper has modified the inputPoint
            //
-           if((snapDirections & draw2d.SnapToHelper.NORTH_SOUTH) && !(direction & draw2d.SnapToHelper.NORTH_SOUTH))
-              this.showHorizontalLine(result.y);
-           else
-              this.hideHorizontalLine();
+           if(allowYChanges && (snapDirections & draw2d.SnapToHelper.NORTH_SOUTH) && !(result.edge & draw2d.SnapToHelper.NORTH_SOUTH)) {
+               this.showHorizontalLine(figure, draw2d.SnapToHelper.NORTH, result.point.y);
+           }
+           else {
+               this.hideHorizontalLine();
+           }
 
-           result.x-= snapPoint.x;
-           result.y-= snapPoint.y;
-           return result;
+           // restore the original pos coordinate if x or y coordinate already snapped to any axis
+           // or subtract the added snapOffset
+            //
+           result.point.x= allowXChanges? result.point.x-snapPoint.x: pos.x;
+           result.point.y= allowYChanges? result.point.y-snapPoint.y: pos.y;
+
+           return result.point;
         }
 
         // The user drag&drop a normal figure
         var inputBounds = new draw2d.geo.Rectangle(pos.x,pos.y, figure.getWidth(), figure.getHeight());
-        var result = new draw2d.geo.Rectangle(pos.x,pos.y, figure.getWidth(), figure.getHeight());
 
-        var snapDirections = draw2d.SnapToHelper.NSEW;
-        var direction = this.snapRectangle( inputBounds, result);
+        var result = this.snapRectangle( inputBounds);
+
+        if(!allowXChanges){
+            result.bounds.x= pos.x;
+        }
+
+        if(!allowYChanges){
+            result.bounds.y=pos.y;
+        }
 
         // Show a vertical line if the snapper has modified the inputPoint
         //
-        if((snapDirections & draw2d.SnapToHelper.WEST) && !(direction & draw2d.SnapToHelper.WEST))
-           this.showVerticalLine(result.x);
-        else if((snapDirections & draw2d.SnapToHelper.EAST) && !(direction & draw2d.SnapToHelper.EAST))
-           this.showVerticalLine(result.getX()+result.getWidth());
-        else
-           this.hideVerticalLine();
+        if(allowXChanges && !(result.edge & draw2d.SnapToHelper.WEST)) {
+            this.showVerticalLine(figure, draw2d.SnapToHelper.WEST, result.bounds.x);
+        }
+        else if(allowXChanges && ! (result.edge & draw2d.SnapToHelper.EAST)) {
+            this.showVerticalLine(figure, draw2d.SnapToHelper.EAST, result.bounds.x + result.bounds.getWidth());
+        }
+        else {
+            this.hideVerticalLine();
+        }
 
 
         // Show a horizontal line if the snapper has modified the inputPoint
         //
-        if((snapDirections & draw2d.SnapToHelper.NORTH) && !(direction & draw2d.SnapToHelper.NORTH))
-           this.showHorizontalLine(result.y);
-        else if((snapDirections & draw2d.SnapToHelper.SOUTH) && !(direction & draw2d.SnapToHelper.SOUTH))
-           this.showHorizontalLine(result.getY()+result.getHeight());
-        else
-           this.hideHorizontalLine();
+        if(allowYChanges && !(result.edge & draw2d.SnapToHelper.NORTH)) {
+            this.showHorizontalLine(figure, draw2d.SnapToHelper.NORTH, result.bounds.y);
+        }
+        else if(allowYChanges && !(result.edge & draw2d.SnapToHelper.SOUTH)) {
+            this.showHorizontalLine(figure, draw2d.SnapToHelper.SOUTH, result.bounds.y + result.bounds.getHeight());
+        }
+        else {
+            this.hideHorizontalLine();
+        }
 
-        return result.getTopLeft();
+        return result.bounds.getTopLeft();
+    },
+
+    /**
+     * @method
+     * calculates the snapped position of the rectangle.
+     *
+     * @param {draw2d.geo.Rectangle} inputBounds
+     * @param {draw2d.geo.Rectangle} resultBounds
+     * @returns {number}
+     */
+    snapRectangle:function(inputBounds)
+    {
+        var resultBounds = inputBounds.clone();
+
+        var topLeft = this.snapPoint(draw2d.SnapToHelper.NORTH_WEST, inputBounds.getTopLeft());
+        resultBounds.x = topLeft.point.x;
+        resultBounds.y = topLeft.point.y;
+
+        var bottomRight = this.snapPoint(draw2d.SnapToHelper.SOUTH_EAST, inputBounds.getBottomRight());
+
+        // The first test (topLeft) has not modified the point. so we can modify them with the bottomRight adjustment
+        //
+        if(topLeft.edge & draw2d.SnapToHelper.WEST) {
+            resultBounds.x = bottomRight.point.x - inputBounds.getWidth();
+        }
+
+        // The first test (topLeft) has not modified the point. so we can modify them with the bottomRight adjustment
+        //
+        if(topLeft.edge & draw2d.SnapToHelper.NORTH) {
+            resultBounds.y = bottomRight.point.y - inputBounds.getHeight();
+        }
+
+        return {edge: topLeft.edge|bottomRight.edge , bounds:resultBounds};
     },
     
-    
-    snapRectangle:function( /*:draw2d.Dimension*/ inputBounds,  /*:draw2d.Dimension*/ resultBounds)
+    snapPoint:function(/*:int*/ snapOrientation, /*:draw2d.Point*/ inputPoint)
     {
-        var topLeftResult     = inputBounds.getTopLeft();
-        var bottomRightResult = inputBounds.getBottomRight();
+        var resultPoint = inputPoint.clone();
 
-        var snapDirectionsTopLeft = this.snapPoint(draw2d.SnapToHelper.NORTH_WEST, inputBounds.getTopLeft(), topLeftResult);
-        resultBounds.x = topLeftResult.x;
-        resultBounds.y = topLeftResult.y;
-
-        var snapDirectionsBottomRight = this.snapPoint(draw2d.SnapToHelper.SOUTH_EAST, inputBounds.getBottomRight(), bottomRightResult);
-        // the first test (topLeft) has not modified the point. so we can modify them with the bottomRight adjustment
-        //
-        if(snapDirectionsTopLeft & draw2d.SnapToHelper.WEST)
-          resultBounds.x = bottomRightResult.x-inputBounds.getWidth();
-
-        // the first test (topLeft) has not modified the point. so we can modify them with the bottomRight adjustment
-        //
-        if(snapDirectionsTopLeft & draw2d.SnapToHelper.NORTH)
-           resultBounds.y = bottomRightResult.y-inputBounds.getHeight();
-
-
-        return snapDirectionsTopLeft |snapDirectionsBottomRight;
-    },
-    
-    snapPoint:function(/*:int*/ snapOrientation, /*:draw2d.Point*/ inputPoint,  /*:draw2d.Point*/ resultPoint)
-    {
        if(this.rows===null || this.cols===null)
          this.populateRowsAndCols();
 
        if ((snapOrientation & draw2d.SnapToHelper.EAST) !== 0) 
        {
-          var rightCorrection = this.getCorrectionFor(this.cols, inputPoint.getX() -1, 1);
+          var rightCorrection = this.getCorrectionFor(this.cols, inputPoint.x -1, 1);
           if (rightCorrection !== this.SNAP_THRESHOLD) 
           {
              snapOrientation &= ~draw2d.SnapToHelper.EAST;
@@ -12146,7 +12507,7 @@ draw2d.policy.canvas.SnapToGeometryEditPolicy = draw2d.policy.canvas.SnapToEditP
 
        if ((snapOrientation & draw2d.SnapToHelper.WEST) !== 0) 
        {
-          var leftCorrection = this.getCorrectionFor(this.cols, inputPoint.getX(), -1);
+          var leftCorrection = this.getCorrectionFor(this.cols, inputPoint.x, -1);
           if (leftCorrection !== this.SNAP_THRESHOLD) 
           {
              snapOrientation &= ~draw2d.SnapToHelper.WEST;
@@ -12156,7 +12517,7 @@ draw2d.policy.canvas.SnapToGeometryEditPolicy = draw2d.policy.canvas.SnapToEditP
 
        if ((snapOrientation & draw2d.SnapToHelper.SOUTH) !== 0) 
        {
-          var bottomCorrection = this.getCorrectionFor(this.rows,  inputPoint.getY() - 1, 1);
+          var bottomCorrection = this.getCorrectionFor(this.rows,  inputPoint.y - 1, 1);
           if (bottomCorrection !== this.SNAP_THRESHOLD) 
           {
              snapOrientation &= ~draw2d.SnapToHelper.SOUTH;
@@ -12166,7 +12527,7 @@ draw2d.policy.canvas.SnapToGeometryEditPolicy = draw2d.policy.canvas.SnapToEditP
 
        if ((snapOrientation & draw2d.SnapToHelper.NORTH) !== 0) 
        {
-          var topCorrection = this.getCorrectionFor(this.rows, inputPoint.getY(), -1);
+          var topCorrection = this.getCorrectionFor(this.rows, inputPoint.y, -1);
           if (topCorrection !== this.SNAP_THRESHOLD) 
           {
              snapOrientation &= ~draw2d.SnapToHelper.NORTH;
@@ -12174,7 +12535,7 @@ draw2d.policy.canvas.SnapToGeometryEditPolicy = draw2d.policy.canvas.SnapToEditP
           }
        }
 
-      return snapOrientation;
+       return {edge: snapOrientation, point: resultPoint};
     },
     
     populateRowsAndCols:function()
@@ -12184,22 +12545,23 @@ draw2d.policy.canvas.SnapToGeometryEditPolicy = draw2d.policy.canvas.SnapToEditP
        this.cols = [];
        
        var figures = this.canvas.getFigures();
-       var index =0;
        for (var i = 0; i < figures.getSize();i++ )
        {
           var figure = figures.get(i);
           if(!selection.contains(figure))
           {
              var bounds = figure.getBoundingBox();
-             this.cols[index * 3]     = {type:-1, location: bounds.getX()};
-             this.rows[index * 3]     = {type:-1, location: bounds.getY()};
-             this.cols[index * 3 + 1] = {type:0 , location: bounds.x + (bounds.getWidth() - 1) / 2};
-             this.rows[index * 3 + 1] = {type:0 , location: bounds.y + (bounds.getHeight() - 1) / 2};
-             this.cols[index * 3 + 2] = {type:1 , location: bounds.getRight() - 1};
-             this.rows[index * 3 + 2] = {type:1 , location: bounds.getBottom() - 1};
-             index++;
+             this.cols.push({type:-1, location: bounds.x});
+             this.cols.push({type:0 , location: bounds.x + (bounds.w - 1) / 2});
+             this.cols.push({type:1 , location: bounds.getRight() - 1});
+             this.rows.push({type:-1, location: bounds.y});
+             this.rows.push({type:0 , location: bounds.y + (bounds.h - 1) / 2});
+             this.rows.push({type:1 , location: bounds.getBottom() - 1});
          }
        }
+
+       // TODO: remove duplicate entries in the rows/cols array
+
     },
 
     getCorrectionFor:function(/*:Array*/ entries, /*:double*/ value, /*:int*/ side) 
@@ -12243,52 +12605,1118 @@ draw2d.policy.canvas.SnapToGeometryEditPolicy = draw2d.policy.canvas.SnapToEditP
        return result;
     },
     
-    showVerticalLine:function(x){
+    showVerticalLine:function(causedFigure, edge, x)
+    {
         if(this.vline!=null){
-            return; //silently
+            this.vline.stop();
+            this.vline.remove();
         }
-        this.vline = this.canvas.paper
-                        .path("M " + x + " 0 l 0 " + this.canvas.getHeight())
-                        .attr({"stroke":this.LINE_COLOR,"stroke-width":1});
+
+        var figures = this.canvas.getFigures().clone();
+        figures.removeAll(this.canvas.getSelection().getAll());
+        figures.map(function(figure){
+            return figure.getBoundingBox();
+        });
+        figures.grep(function(bbox){
+            return (Math.abs(bbox.x-x)<=1) || (Math.abs(bbox.getRight()-x)<=1);
+        });
+
+        // figure to align is above the current shape
+        //
+        var causedBox  = causedFigure.getBoundingBox();
+        var causedCenter  = causedBox.getCenter();
+        figures.sort(function(a,b){
+            var d_a = a.getCenter().getDistance(causedCenter);
+            var d_b = b.getCenter().getDistance(causedCenter);
+            return d_a-d_b;
+        });
+        var fromY = 0;
+        var yLength  = maxLength = this.canvas.getHeight()*Math.max(1,this.canvas.getZoom());
+        var snappedBox = figures.get(0);
+        if(causedBox.y <snappedBox.y){
+            fromY   = causedBox.y;
+            yLength = snappedBox.getBottom()-causedBox.y;
+        }
+        else{
+            fromY   = snappedBox.y;
+            yLength = causedBox.getBottom()-snappedBox.y;
+        }
+
+        x=(x|0)+0.5; // force a .5 number to avoid subpixel rendering. Blurry lines...
+        this.canvas.paper.setStart();
+        this.canvas.paper.path("M " + x + " 0 l 0 " + maxLength)
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1, "stroke-dasharray":". "});
+        this.canvas.paper.path("M " + x + " "+fromY+" l 0 " + yLength)
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+        this.vline = this.canvas.paper.setFinish();
+        this.vline.toBack();
     },
     
-    hideVerticalLine:function(){
+    hideVerticalLine:function()
+    {
         if(this.vline==null){
             return;
         }
-        var tmp = this.vline;
-        tmp.animate({
-            opacity: 0.1
-        }, this.FADEOUT_DURATION,function(){
-            tmp.remove();
-        });
-        
-        this.vline = null;
+        this.vline.animate(
+            {opacity: 0.1},
+            this.FADEOUT_DURATION,
+            $.proxy(function(){
+                if(this.vline!==null) {
+                    this.vline.remove();
+                    this.vline = null;
+                }
+            },this)
+        );
     },
     
-    showHorizontalLine:function(y){
+    showHorizontalLine:function(causedFigure, edge, y)
+    {
         if(this.hline!=null){
-            return;
+            this.hline.stop();
+            this.hline.remove();
         }
-        
-        this.hline = this.canvas.paper
-                      .path("M 0 " + y + " l " + this.canvas.getWidth() + " 0")
-                      .attr({"stroke":this.LINE_COLOR,"stroke-width":1});
+
+        var figures = this.canvas.getFigures().clone();
+        figures.removeAll(this.canvas.getSelection().getAll());
+        figures.map(function(figure){
+            return figure.getBoundingBox();
+        });
+        figures.grep(function(bbox){
+            return (Math.abs(bbox.y-y)<=1) || (Math.abs(bbox.getBottom()-y)<=1);
+        });
+
+        // figure to align is above the current shape
+        //
+        var causedBox  = causedFigure.getBoundingBox();
+        var causedCenter  = causedBox.getCenter();
+        figures.sort(function(a,b){
+            var d_a = a.getCenter().getDistance(causedCenter);
+            var d_b = b.getCenter().getDistance(causedCenter);
+            return d_a-d_b;
+        });
+        var fromX = 0;
+        var xLength  = maxLength = this.canvas.getWidth()*Math.max(1,this.canvas.getZoom());
+        var snappedBox = figures.get(0);
+        if(causedBox.x <snappedBox.x){
+            fromX   = causedBox.x;
+            xLength = snappedBox.getRight()-causedBox.x;
+        }
+        else{
+            fromX   = snappedBox.x;
+            xLength = causedBox.getRight()-snappedBox.x;
+        }
+
+
+        y=(y|0)+0.5; // force a .5 number to avoid subpixel rendering. Blurry lines...
+
+        this.canvas.paper.setStart();
+        this.canvas.paper.path("M 0 "+y+ " l " + maxLength+" 0")
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1, "stroke-dasharray":". "});
+        this.canvas.paper.path("M "+fromX+" " + y + " l " + xLength + " 0")
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+        this.hline = this.canvas.paper.setFinish();
+        this.hline.toBack();
+
     },
 
-    hideHorizontalLine:function(){
+    hideHorizontalLine:function()
+    {
         if(this.hline==null){
             return; //silently
         }
-        var tmp = this.hline;
-        tmp.animate({
-            opacity: 0.1
-        }, this.FADEOUT_DURATION,function(){
-            tmp.remove();
-        });
-        this.hline = null;
+        this.hline.animate(
+            {opacity: 0.1},
+            this.FADEOUT_DURATION,
+            $.proxy(function(){
+                if(this.hline!==null) {
+                    this.hline.remove();
+                    this.hline = null;
+                }
+            },this)
+        );
     }
     
+});
+/*****************************************
+ *   Library is under GPL License (GPL)
+ *   Copyright (c) 2012 Andreas Herz
+ ****************************************/
+
+/**
+ * @class draw2d.policy.canvas.SnapToInBetweenEditPolicy
+ * 
+ * Snapping is based on the existing children of a container. When snapping a shape, 
+ * the edges of the bounding box will snap to edges of other rectangles generated 
+ * from the children of the given canvas. 
+ * 
+ * 
+ * @author Andreas Herz
+ * 
+ * @extends draw2d.policy.canvas.SnapToEditPolicy
+ * @since 5.6.4
+ */
+draw2d.policy.canvas.SnapToInBetweenEditPolicy = draw2d.policy.canvas.SnapToEditPolicy.extend({
+
+    NAME : "draw2d.policy.canvas.SnapToInBetweenEditPolicy",
+    
+    SNAP_THRESHOLD   : 5,
+    FADEOUT_DURATION : 500,
+    
+    /**
+     * @constructor 
+     * Creates a new constraint policy for snap to geometry
+     * 
+     */
+    init: function( attr, setter, getter){
+        this.lineColor = null;
+
+        this._super(
+            $.extend({
+                lineColor: "#1387E6"
+            },attr),
+            $.extend({
+                /** @attr {draw2d.util.Color} color the line color of the snapTo lines */
+                lineColor : this.setLineColor
+            }, setter),
+            $.extend({
+                lineColor : this.getLineColor
+            }, getter));
+
+        this.bounds=null;
+
+        this.horizontalGuideLines = null;
+        this.verticalGuideLines = null;
+        this.canvas = null;
+    },
+
+
+    /**
+     * @method
+     * Set the color of the snap line.
+     *
+     *      // Alternatively you can use the attr method:
+     *      policy.attr({
+     *        lineColor: color
+     *      });
+     *
+     * @param {draw2d.util.Color|String} color The new color of the line.
+     **/
+    setLineColor:function( color)
+    {
+        this.lineColor = new draw2d.util.Color(color);
+        return this;
+    },
+
+    /**
+     * @method
+     * Return the current paint color.
+     *
+     * @return {draw2d.util.Color} The paint color of the line.
+     * @since 5.6.1
+     **/
+    getLineColor:function()
+    {
+        return this.lineColor;
+    },
+
+
+    onInstall: function(canvas)
+    {
+        this.canvas = canvas;
+    },
+    
+    onUninstall: function(canvas)
+    {
+        this.canvas = null;
+    },
+    
+    /**
+     * @method
+     * 
+     * @param {draw2d.Canvas} canvas
+     * @param {Number} x the x-coordinate of the mouse down event
+     * @param {Number} y the y-coordinate of the mouse down event
+     * @param {Boolean} shiftKey true if the shift key has been pressed during this event
+     * @param {Boolean} ctrlKey true if the ctrl key has been pressed during the event
+     * @template
+     */
+    onMouseUp: function(figure, x, y, shiftKey, ctrlKey)
+    {
+        this.bounds=null;
+        this.hideHorizontalGuides(false);
+        this.hideVerticalGuides(false);
+    },
+    
+    /**
+     * @method
+     * Adjust the coordinates to the canvas neighbours
+     *
+     * @param canvas the related canvas
+     * @param figure the figure to snap
+     * @param {draw2d.geo.Point} pos
+     *
+     * @returns {draw2d.geo.Point} the constraint position of the figure
+     */
+    snap: function(canvas, figure, modifiedPos, originalPos)
+    {
+        // do nothing for resize handles
+        if(figure instanceof draw2d.ResizeHandle) {
+           return modifiedPos;
+        }
+
+
+        var allowXChanges = modifiedPos.x=== originalPos.x;
+        var allowYChanges = modifiedPos.y=== originalPos.y;
+
+        var inputBounds = new draw2d.geo.Rectangle(modifiedPos.x,modifiedPos.y, figure.getWidth(), figure.getHeight());
+
+        modifiedPos = modifiedPos.clone();
+
+        if(allowXChanges===true) {
+            var horizontal = this.snapHorizontal(inputBounds);
+
+            // Show a horizontal line if the snapper has modified the inputPoint
+            //
+            if (horizontal.snapped) {
+                // show the snap lines..
+                this.showHorizontalGuides(figure, horizontal);
+
+                // and snap the x coordinate
+                modifiedPos.x += horizontal.diff;
+            }
+            else {
+                this.hideHorizontalGuides(true);
+            }
+        }
+        else{
+            this.hideHorizontalGuides(true);
+        }
+
+        if(allowYChanges===true) {
+            var vertical = this.snapVertical(inputBounds);
+
+            // Show a vertical guides if the snapper has modified the inputPoint
+            //
+            if (vertical.snapped) {
+                // show the snap lines..
+                this.showVerticalGuides(figure, vertical);
+
+                // and snap the x coordinate
+                modifiedPos.y += vertical.diff;
+            }
+            else {
+                this.hideVerticalGuides(true);
+            }
+        }
+        else{
+            this.hideVerticalGuides(true);
+        }
+
+        return modifiedPos;
+    },
+
+
+    snapHorizontal:function( boundingBox    )
+    {
+        var center = boundingBox.getCenter();
+        if(this.bounds===null)
+         this.populateBounds();
+
+        var result = {
+            point:center,
+            snapped:false,
+            snappedBox : boundingBox.clone()
+        };
+
+
+        var intersectionPoint=null;
+
+        // Calculate the intersections points p(i) of all left side edges of the bounding boxes
+        // and the ray from the center of the drag&drop object to the left edge of the canva
+        //
+        // BBox of          Drag&Drop
+        // any Figure       Figure
+        //
+        // ....+           ........
+        //     |           .      .
+        // .   |p(i)       .      .
+        // .   X<------------->+  .
+        // .   |           .      .
+        // ....+           .      .
+        //                 ........
+        //
+        //
+        var leftIntersections = [];
+        var leftInputPoint = center.clone();
+        leftInputPoint.x=0;
+        this.bounds.forEach(function( bbox,index){
+            intersectionPoint =  draw2d.shape.basic.Line.intersection(bbox.getTopRight(), bbox.getBottomRight(), center, leftInputPoint);
+            if (intersectionPoint !== null) {
+                intersectionPoint.causedBBox = bbox;
+                leftIntersections.push(intersectionPoint);
+            }
+        });
+        // we can abort if we didn't find an intersection on the left hand side
+        if(leftIntersections.length===0){
+            return result;
+        }
+
+        // sort the intersection point and get the closest point to the tested inputPoint
+        // In this case it is the point with the greates X coordinate
+        //
+        leftIntersections.sort(function(a, b) {
+            return b.x - a.x;
+        });
+
+
+
+        // Calculate the intersections points p(i) of all right hand side edges of the
+        // bounding boxes and the ray from the center of the drag&drop object to the
+        // left edge of the canvas
+        //
+        //                 Drag&Drop             bbox of any
+        //                 Figure                figure
+        //
+        //                 ........
+        //                 .      .
+        //                 .      .             ...........
+        //                 .   +<-------------->X         |
+        //                 .      .         p(i)|         |
+        //                 .      .             |         |
+        //                 ........             |         |
+        //                                      ...........
+        //
+        var rightIntersections= [];
+        var rightInputPoint = center.clone();
+        rightInputPoint.x= Number.MAX_SAFE_INTEGER;
+        this.bounds.forEach(function( bbox,index){
+            intersectionPoint =  draw2d.shape.basic.Line.intersection(bbox.getTopLeft(), bbox.getBottomLeft(), center, rightInputPoint);
+            if (intersectionPoint !== null) {
+                intersectionPoint.causedBBox = bbox;
+                rightIntersections.push(intersectionPoint);
+            }
+        });
+        // we can abort if we didn't find an intersection on the right hand side
+        if(rightIntersections.length===0){
+            return result;
+        }
+
+        // sort the intersection point and get the closest point to the tested inputPoint
+        // In this case it is the point with the greates X coordinate
+        //
+        rightIntersections.sort(function(a, b) {
+            return a.x - b.x;
+        });
+
+
+
+        // Snap the point (S) between the two founded intersections
+        // p(i1) and p(i2)
+        //
+        // BBox FigureA     Drag&Drop           BBox of FigureB
+        //                  Figure
+        //
+        // ....+           ........
+        //     |           .      .
+        // .   |p(i1)      .   S  .             ...........
+        // .   X<------------->X<-------------->X         |
+        // .   |           .      .        p(i2)|         |
+        // ....+           .      .             |         |
+        //                 ........             |         |
+        //                                      ...........
+        //
+        var snappedRect = boundingBox.clone();
+        var diff = ((leftIntersections[0].x + rightIntersections[0].x)/2)-center.x;
+
+        snappedRect.x +=diff;
+
+        return {snapped: Math.abs(diff)<this.SNAP_THRESHOLD, snappedRect:snappedRect, diff:diff, leftSide:leftIntersections[0], rightSide:rightIntersections[0]};
+    },
+
+
+    snapVertical:function( boundingBox )
+    {
+        var center = boundingBox.getCenter();
+
+        if(this.bounds===null) {
+            this.populateBounds();
+        }
+
+        var result = {
+            point:center,
+            snapped:false,
+            snappedBox : boundingBox.clone()
+        };
+
+
+        var intersectionPoint=null;
+
+        // Calculate the intersections points p(i) of all left side edges of the bounding boxes
+        // and the ray from the center of the drag&drop object to the left edge of the canva
+        //
+        // BBox of          Drag&Drop
+        // any Figure       Figure
+        //
+        // ....+           ........
+        //     |           .      .
+        // .   |p(i)       .      .
+        // .   X<------------->+  .
+        // .   |           .      .
+        // ....+           .      .
+        //                 ........
+        //
+        //
+        var topIntersections = [];
+        var topInputPoint = center.clone();
+        topInputPoint.y=0;
+        this.bounds.forEach(function( bbox){
+            intersectionPoint =  draw2d.shape.basic.Line.intersection(bbox.getBottomLeft(), bbox.getBottomRight(), center, topInputPoint);
+            if (intersectionPoint !== null) {
+                intersectionPoint.causedBBox = bbox;
+                topIntersections.push(intersectionPoint);
+            }
+        });
+        // we can abort if we didn't find an intersection on the left hand side
+        if(topIntersections.length===0){
+            return result;
+        }
+
+        // sort the intersection point and get the closest point to the tested inputPoint
+        // In this case it is the point with the greates X coordinate
+        //
+        topIntersections.sort(function(a, b) {
+            return b.y - a.y;
+        });
+
+
+
+        // Calculate the intersections points p(i) of all right hand side edges of the
+        // bounding boxes and the ray from the center of the drag&drop object to the
+        // left edge of the canvas
+        //
+        //                 Drag&Drop             bbox of any
+        //                 Figure                figure
+        //
+        //                 ........
+        //                 .      .
+        //                 .      .             ...........
+        //                 .   +<-------------->X         |
+        //                 .      .         p(i)|         |
+        //                 .      .             |         |
+        //                 ........             |         |
+        //                                      ...........
+        //
+        var bottomIntersections= [];
+        var bottomInputPoint = center.clone();
+        bottomInputPoint.y= Number.MAX_SAFE_INTEGER;
+        this.bounds.forEach(function( bbox){
+            intersectionPoint =  draw2d.shape.basic.Line.intersection(bbox.getTopLeft(), bbox.getTopRight(), center, bottomInputPoint);
+            if (intersectionPoint !== null) {
+                intersectionPoint.causedBBox = bbox;
+                bottomIntersections.push(intersectionPoint);
+            }
+        });
+        // we can abort if we didn't find an intersection on the right hand side
+        if(bottomIntersections.length===0){
+            return result;
+        }
+
+        // sort the intersection point and get the closest point to the tested inputPoint
+        // In this case it is the point with the greates X coordinate
+        //
+        bottomIntersections.sort(function(a, b) {
+            return a.y - b.y;
+        });
+
+
+
+        // Snap the point (S) between the two founded intersections
+        // p(i1) and p(i2)
+        //
+        // BBox FigureA     Drag&Drop           BBox of FigureB
+        //                  Figure
+        //
+        // ....+           ........
+        //     |           .      .
+        // .   |p(i1)      .   S  .             ...........
+        // .   X<------------->X<-------------->X         |
+        // .   |           .      .        p(i2)|         |
+        // ....+           .      .             |         |
+        //                 ........             |         |
+        //                                      ...........
+        //
+        var snappedRect = boundingBox.clone();
+        var diff = ((topIntersections[0].y + bottomIntersections[0].y)/2)-center.y;
+
+        snappedRect.y +=diff;
+
+        return {snapped: Math.abs(diff)<this.SNAP_THRESHOLD, snappedRect:snappedRect, diff:diff, topSide:topIntersections[0], bottomSide:bottomIntersections[0]};
+    },
+
+    populateBounds:function()
+    {
+       var selection = this.canvas.getSelection();
+       this.bounds = [];
+       
+       var figures = this.canvas.getFigures();
+       for (var i = 0; i < figures.getSize();i++ ){
+          var figure = figures.get(i);
+          if(!selection.contains(figure)){
+             this.bounds.push(figure.getBoundingBox());
+         }
+       }
+    },
+
+    showHorizontalGuides:function(causedFigure, constraint)
+    {
+        if(this.horizontalGuideLines!=null){
+            this.horizontalGuideLines.stop();
+            this.horizontalGuideLines.remove();
+        }
+
+        var snapTopLeft  = constraint.snappedRect.getTopLeft();
+        var snapTopRight = constraint.snappedRect.getTopRight();
+        var y = ((Math.min(constraint.leftSide.causedBBox.getTopRight().y,Math.min(constraint.rightSide.causedBBox.y,causedFigure.getY()))-50)|0)+0.5;
+
+        this.canvas.paper.setStart();
+
+        // Vertical lines from left to the right order
+        //
+        this.canvas.paper.path("M " + ((constraint.leftSide.x|0)+0.5)   + " "+y+" L "+((constraint.leftSide.x|0)+0.5) + " "  + constraint.leftSide.y)
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1, "stroke-dasharray":". "});;
+        this.canvas.paper.path("M " + ((snapTopLeft.x |0)+0.5)  + " "+y+" L "+((snapTopLeft.x|0)+0.5) + " "  + snapTopLeft.y)
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1, "stroke-dasharray":". "});;
+        this.canvas.paper.path("M " + ((snapTopRight.x|0)+0.5)   + " "+y+" L "+((snapTopRight.x|0)+0.5) + " "  + snapTopRight.y)
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1, "stroke-dasharray":". "});;
+        this.canvas.paper.path("M " + ((constraint.rightSide.x|0)+0.5)  + " "+y+" L "+((constraint.rightSide.x|0)+0.5)+ " "  + constraint.rightSide.y)
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1, "stroke-dasharray":". "});;
+
+        // horizontal lines
+        //
+        this.canvas.paper.path("M " + (constraint.leftSide.x)   + " "+(y+5)+" L "+(snapTopLeft.x)+ " "  + (y+5)).attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+        this.canvas.paper.path("M " + (constraint.rightSide.x)  + " "+(y+5)+" L "+(snapTopRight.x)+ " "  + (y+5)).attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+        // 4 arrow heads starting on the left side and add one by one
+        //
+        this.canvas.paper.path(
+              " M " + (constraint.leftSide.x+5) + " "+(y)
+             +" L " + (constraint.leftSide.x) + " "+(y+5)
+             +" L " + (constraint.leftSide.x+5) + " "+(y+10))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+        this.canvas.paper.path(
+             " M " + (snapTopLeft.x-5) + " "+(y)
+            +" L " + (snapTopLeft.x) + " "+(y+5)
+            +" L " + (snapTopLeft.x-5) + " "+(y+10))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+
+        this.canvas.paper.path(
+             " M " + (snapTopRight.x+5) + " "+(y)
+            +" L " + (snapTopRight.x) + " "+(y+5)
+            +" L " + (snapTopRight.x+5) + " "+(y+10))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+
+        this.canvas.paper.path(
+             " M " + (constraint.rightSide.x-5) + " "+(y)
+            +" L " + (constraint.rightSide.x) + " "+(y+5)
+            +" L " + (constraint.rightSide.x-5) + " "+(y+10))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+
+        this.horizontalGuideLines = this.canvas.paper.setFinish();
+        this.horizontalGuideLines.toFront();
+    },
+
+    /**
+     * @method
+     * Hide the horizontal snapüing guides
+     *
+     * @param soft
+     */
+    hideHorizontalGuides:function( fast)
+    {
+        if(this.horizontalGuideLines==null){
+            return;
+        }
+        if(fast===true) {
+            if (this.horizontalGuideLines !== null) {
+                this.horizontalGuideLines.remove();
+                this.horizontalGuideLines = null;
+            }
+        }
+        else {
+            this.horizontalGuideLines.animate(
+                {opacity: 0.1},
+                this.FADEOUT_DURATION,
+                $.proxy(function () {
+                    if (this.horizontalGuideLines !== null) {
+                        this.horizontalGuideLines.remove();
+                        this.horizontalGuideLines = null;
+                    }
+                }, this)
+            );
+        }
+    },
+
+    showVerticalGuides:function(causedFigure, constraint)
+    {
+        if(this.verticalGuideLines!=null){
+            this.verticalGuideLines.stop();
+            this.verticalGuideLines.remove();
+        }
+
+        var snapTopRight    = constraint.snappedRect.getTopRight();
+        var snapBottomRight = constraint.snappedRect.getBottomRight();
+        var x = ((Math.max(constraint.topSide.causedBBox.getRight(),Math.max(constraint.bottomSide.causedBBox.getRight(),causedFigure.getX()))+40)|0)+0.5;
+
+        this.canvas.paper.setStart();
+
+        // Vertical lines from left to the right order
+        //
+        this.canvas.paper.path("M " + x + " "+((constraint.topSide.y|0)+0.5)+" L "+((constraint.topSide.x|0)+0.5) + " "  + ((constraint.topSide.y|0)+0.5))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1, "stroke-dasharray":". "});
+        this.canvas.paper.path("M " + x + " "+((snapTopRight.y|0)+0.5)+" L "+((snapTopRight.x|0)+0.5) + " "  + ((snapTopRight.y|0)+0.5))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1, "stroke-dasharray":". "});
+        this.canvas.paper.path("M " + x + " "+((snapBottomRight.y|0)+0.5)+" L "+((snapBottomRight.x|0)+0.5) + " "  + ((snapBottomRight.y|0)+0.5))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1, "stroke-dasharray":". "});
+        this.canvas.paper.path("M " + x   + " "+((constraint.bottomSide.y|0)+0.5)+" L "+((constraint.bottomSide.x|0)+0.5) + " "  + ((constraint.bottomSide.y|0)+0.5))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1, "stroke-dasharray":". "});
+
+        // horizontal lines
+        //
+        this.canvas.paper.path("M " + (x-5)  + " "+(((constraint.topSide.y|0)+0.5))+" L "+(x-5)+ " "  +((snapTopRight.y|0)+0.5))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+        this.canvas.paper.path("M " + (x-5)  + " "+(((constraint.bottomSide.y|0)+0.5))+" L "+(x-5)+ " "  +((snapBottomRight.y|0)+0.5))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+
+         // 4 arrow heads starting on the left side and add one by one
+        //
+        this.canvas.paper.path(
+             " M " + (x-10)+ " "+(constraint.topSide.y+5)
+            +" L " + (x-5) + " "+(constraint.topSide.y)
+            +" L " + (x)   + " "+(constraint.topSide.y+5))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+        this.canvas.paper.path(
+             " M " + (x-10)+ " "+(snapTopRight.y-5)
+            +" L " + (x-5) + " "+(snapTopRight.y)
+            +" L " + (x)   + " "+(snapTopRight.y-5))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+        this.canvas.paper.path(
+             " M " + (x-10)+ " "+(snapBottomRight.y+5)
+            +" L " + (x-5) + " "+(snapBottomRight.y)
+            +" L " + (x)   + " "+(snapBottomRight.y+5))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+        this.canvas.paper.path(
+             " M " + (x-10)+ " "+(constraint.bottomSide.y-5)
+            +" L " + (x-5) + " "+(constraint.bottomSide.y)
+            +" L " + (x)   + " "+(constraint.bottomSide.y-5))
+            .attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+        this.verticalGuideLines = this.canvas.paper.setFinish();
+        this.verticalGuideLines.toFront();
+    },
+
+    hideVerticalGuides:function()
+    {
+        if(this.verticalGuideLines==null){
+            return; //silently
+        }
+        this.verticalGuideLines.animate(
+            {opacity: 0.1},
+            this.FADEOUT_DURATION,
+            $.proxy(function(){
+                if(this.verticalGuideLines!==null) {
+                    this.verticalGuideLines.remove();
+                    this.verticalGuideLines = null;
+                }
+            },this)
+        );
+    }
+    
+});
+/*****************************************
+ *   Library is under GPL License (GPL)
+ *   Copyright (c) 2012 Andreas Herz
+ ****************************************/
+
+/**
+ * @class draw2d.policy.canvas.SnapToCenterEditPolicy
+ * 
+ * Snapping is based on the existing children of a container. When snapping a shape, 
+ * the center of the bounding box will snap to the center of other figures of the given canvas.
+ *
+ * @author Andreas Herz
+ * 
+ * @extends draw2d.policy.canvas.SnapToEditPolicy
+ * @since 5.6.4
+ */
+draw2d.policy.canvas.SnapToCenterEditPolicy = draw2d.policy.canvas.SnapToEditPolicy.extend({
+
+    NAME : "draw2d.policy.canvas.SnapToCenterEditPolicy",
+    
+    SNAP_THRESHOLD   : 5,
+    FADEOUT_DURATION : 500,
+    
+    /**
+     * @constructor 
+     * Creates a new constraint policy for snap to geometry
+     * 
+     */
+    init: function( attr, setter, getter){
+        this.lineColor = null;
+
+        this._super(
+            $.extend({
+                lineColor: "#1387E6"
+            },attr),
+            $.extend({
+                /** @attr {draw2d.util.Color} color the line color of the snapTo lines */
+                lineColor : this.setLineColor
+            }, setter),
+            $.extend({
+                lineColor : this.getLineColor
+            }, getter));
+
+        this.centers=null;
+
+        this.horizontalGuideLines = null;
+        this.verticalGuideLines = null;
+        this.canvas = null;
+    },
+
+
+    /**
+     * @method
+     * Set the color of the snap line.
+     *
+     *      // Alternatively you can use the attr method:
+     *      policy.attr({
+     *        lineColor: color
+     *      });
+     *
+     * @param {draw2d.util.Color|String} color The new color of the line.
+     **/
+    setLineColor:function( color)
+    {
+        this.lineColor = new draw2d.util.Color(color);
+        return this;
+    },
+
+    /**
+     * @method
+     * Return the current paint color.
+     *
+     * @return {draw2d.util.Color} The paint color of the line.
+     * @since 5.6.1
+     **/
+    getLineColor:function()
+    {
+        return this.lineColor;
+    },
+
+
+    onInstall: function(canvas)
+    {
+        this.canvas = canvas;
+    },
+    
+    onUninstall: function(canvas)
+    {
+        this.canvas = null;
+    },
+    
+    /**
+     * @method
+     * 
+     * @param {draw2d.Canvas} canvas
+     * @param {Number} x the x-coordinate of the mouse down event
+     * @param {Number} y the y-coordinate of the mouse down event
+     * @param {Boolean} shiftKey true if the shift key has been pressed during this event
+     * @param {Boolean} ctrlKey true if the ctrl key has been pressed during the event
+     * @template
+     */
+    onMouseUp: function(figure, x, y, shiftKey, ctrlKey)
+    {
+        this.centers=null;
+        this.hideHorizontalGuides(false);
+        this.hideVerticalGuides(false);
+    },
+    
+    /**
+     * @method
+     * Adjust the coordinates to the canvas neighbours
+     *
+     * @param canvas the related canvas
+     * @param figure the figure to snap
+     * @param {draw2d.geo.Point} pos
+     *
+     * @returns {draw2d.geo.Point} the constraint position of the figure
+     */
+    snap: function(canvas, figure, modifiedPos, originalPos)
+    {
+        // do nothing for resize handles
+        if(figure instanceof draw2d.ResizeHandle) {
+           return modifiedPos;
+        }
+
+
+        var allowXChanges = modifiedPos.x=== originalPos.x;
+        var allowYChanges = modifiedPos.y=== originalPos.y;
+
+        var inputBounds = new draw2d.geo.Rectangle(modifiedPos.x,modifiedPos.y, figure.getWidth(), figure.getHeight());
+        var inputCenter = inputBounds.getCenter();
+
+        modifiedPos = modifiedPos.clone();
+
+        if(allowXChanges===true) {
+            var horizontal = this.snapHorizontal(inputCenter);
+
+            // Show a horizontal line if the snapper has modified the inputPoint
+            //
+            if (horizontal.snapped) {
+                // show the snap lines..
+                this.showHorizontalGuides(figure, horizontal);
+
+                // and snap the x coordinate
+                modifiedPos.y += horizontal.diff;
+            }
+            else {
+                this.hideHorizontalGuides(true);
+            }
+        }
+        else{
+            this.hideHorizontalGuides(true);
+        }
+
+        if(allowYChanges===true) {
+            var vertical = this.snapVertical(inputCenter);
+
+            // Show a vertical guides if the snapper has modified the inputPoint
+            //
+            if (vertical.snapped) {
+                // show the snap lines..
+                this.showVerticalGuides(figure, vertical);
+
+                // and snap the x coordinate
+                modifiedPos.x += vertical.diff;
+            }
+            else {
+                this.hideVerticalGuides(true);
+            }
+        }
+        else{
+            this.hideVerticalGuides(true);
+        }
+
+        return modifiedPos;
+    },
+
+
+    snapVertical:function( center  )
+    {
+        var _this = this;
+        if(this.centers===null) {
+            this.populateCenters();
+        }
+
+        var result = {
+            point:center,
+            snapped:false,
+            diff : 0
+        };
+
+
+        var candidates= [];
+        this.centers.forEach(function( point){
+            if(Math.abs(point.x - center.x)<_this.SNAP_THRESHOLD){
+                candidates.push(point);
+            }
+        });
+
+        // we can abort if we didn't find an intersection on the right hand side
+        if(candidates.length===0){
+            return result;
+        }
+
+        // sort the intersection point and get the closest point to the tested inputPoint
+        // In this case it is the point with the greates X coordinate
+        //
+        candidates.sort(function(a, b) {
+            return a.x - b.x;
+        });
+
+        var diff = candidates[0].x -center.x;
+        var snappedPoint = center.clone();
+        snappedPoint.x +=diff;
+        return {snapped: true, diff:diff, point:candidates[0], snappedPoint:snappedPoint};
+    },
+
+
+
+    snapHorizontal:function( center  )
+    {
+        var _this = this;
+        if(this.centers===null) {
+            this.populateCenters();
+        }
+
+        var result = {
+            point:center,
+            snapped:false,
+            diff : 0
+        };
+
+
+        var candidates= [];
+        this.centers.forEach(function( point){
+            if(Math.abs(point.y - center.y)<_this.SNAP_THRESHOLD){
+                candidates.push(point);
+            }
+        });
+
+        // we can abort if we didn't find an intersection on the right hand side
+        if(candidates.length===0){
+            return result;
+        }
+
+        // sort the intersection point and get the closest point to the tested inputPoint
+        // In this case it is the point with the greatest X coordinate
+        //
+        candidates.sort(function(a, b) {
+            return a.y - b.y;
+        });
+
+        var diff = candidates[0].y -center.y;
+        var snappedPoint = center.clone();
+        snappedPoint.y +=diff;
+        return {snapped: true, diff:diff, point:candidates[0], snappedPoint:snappedPoint};
+    },
+
+    populateCenters: function()
+    {
+       var selection = this.canvas.getSelection();
+       this.centers = [];
+       
+       var figures = this.canvas.getFigures();
+       for (var i = 0; i < figures.getSize();i++ ){
+          var figure = figures.get(i);
+          if(!selection.contains(figure)){
+             this.centers.push(figure.getBoundingBox().getCenter());
+         }
+       }
+    },
+
+    showHorizontalGuides:function(causedFigure, constraint)
+    {
+        if(this.horizontalGuideLines!==null){
+            this.horizontalGuideLines.stop();
+            this.horizontalGuideLines.remove();
+        }
+
+        var start  = constraint.point;
+        var end    = constraint.snappedPoint;
+
+        this.canvas.paper.setStart();
+
+        // horizontal lines
+        //
+        this.canvas.paper.path("M " + (start.x)  + " "+((start.y|0)+0.5)+" L "+(end.x)+ " "  + ((end.y|0)+0.5)).attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+        this.horizontalGuideLines = this.canvas.paper.setFinish();
+        this.horizontalGuideLines.toFront();
+    },
+
+    /**
+     * @method
+     * Hide the horizontal snapüing guides
+     *
+     * @param soft
+     */
+    hideHorizontalGuides:function( fast)
+    {
+        if(this.horizontalGuideLines===null){
+            return;
+        }
+        if(fast===true) {
+            if (this.horizontalGuideLines !== null) {
+                this.horizontalGuideLines.remove();
+                this.horizontalGuideLines = null;
+            }
+        }
+        else {
+            this.horizontalGuideLines.animate(
+                {opacity: 0.1},
+                this.FADEOUT_DURATION,
+                $.proxy(function () {
+                    if (this.horizontalGuideLines !== null) {
+                        this.horizontalGuideLines.remove();
+                        this.horizontalGuideLines = null;
+                    }
+                }, this)
+            );
+        }
+    },
+
+
+    showVerticalGuides:function(causedFigure, constraint)
+    {
+        if(this.verticalGuideLines!==null){
+            this.verticalGuideLines.stop();
+            this.verticalGuideLines.remove();
+        }
+
+        var start  = constraint.point;
+        var end    = constraint.snappedPoint;
+
+        this.canvas.paper.setStart();
+
+        // horizontal lines
+        //
+        this.canvas.paper.path("M " + ((start.x|0)+0.5)  + " "+(start.y)+" L "+((end.x|0)+0.5)+ " "  + (end.y)).attr({"stroke":this.lineColor.hash(),"stroke-width":1});
+
+
+        this.verticalGuideLines = this.canvas.paper.setFinish();
+        this.verticalGuideLines.toFront();
+    },
+
+    /**
+     * @method
+     * Hide the horizontal snapüing guides
+     *
+     * @param soft
+     */
+    hideVerticalGuides:function( fast)
+    {
+        if(this.verticalGuideLines===null){
+            return;
+        }
+        if(fast===true) {
+            if (this.verticalGuideLines !== null) {
+                this.verticalGuideLines.remove();
+                this.verticalGuideLines = null;
+            }
+        }
+        else {
+            this.verticalGuideLines.animate(
+                {opacity: 0.1},
+                this.FADEOUT_DURATION,
+                $.proxy(function () {
+                    if (this.verticalGuideLines !== null) {
+                        this.verticalGuideLines.remove();
+                        this.verticalGuideLines = null;
+                    }
+                }, this)
+            );
+        }
+    }
 });
 /*****************************************
  *   Library is under GPL License (GPL)
@@ -12312,8 +13740,8 @@ draw2d.policy.figure.FigureEditPolicy = draw2d.policy.EditPolicy.extend({
      * @constructor 
      * Creates a new Router object
      */
-    init: function(){
-        this._super();
+    init: function( attr, setter, getter){
+        this._super( attr, setter, getter);
     },
     
     /**
@@ -12354,9 +13782,8 @@ draw2d.policy.figure.DragDropEditPolicy = draw2d.policy.figure.FigureEditPolicy.
      * @constructor 
      * Creates a new Router object
      */
-    init: function()
-    {
-        this._super();
+    init: function( attr, setter, getter){
+        this._super( attr, setter, getter);
     },
     
    
@@ -12613,8 +14040,9 @@ draw2d.policy.figure.HorizontalEditPolicy = draw2d.policy.figure.DragDropEditPol
      * Creates a new constraint object
      * 
      */
-    init: function(){
-        this._super();
+    init: function( attr, setter, getter)
+    {
+        this._super( attr, setter, getter);
     },
 
 
@@ -12668,9 +14096,9 @@ draw2d.policy.figure.VerticalEditPolicy = draw2d.policy.figure.DragDropEditPolic
      * @constructor 
      * Creates a new constraint object
      */
-    init: function()
+    init: function( attr, setter, getter)
     {
-        this._super();
+        this._super( attr, setter, getter);
     },
 
 
@@ -12712,9 +14140,9 @@ draw2d.policy.figure.SelectionFeedbackPolicy = draw2d.policy.figure.DragDropEdit
      * @constructor 
      * 
      */
-    init: function()
+    init: function( attr, setter, getter)
     {
-        this._super();
+        this._super( attr, setter, getter);
     },
     
 
@@ -12816,8 +14244,9 @@ draw2d.policy.figure.ResizeSelectionFeedbackPolicy = draw2d.policy.figure.Select
      * @constructor 
      * Creates a new Router object
      */
-    init: function(){
-        this._super();
+    init: function( attr, setter, getter)
+    {
+        this._super( attr, setter, getter);
    },
     
 
@@ -12955,9 +14384,9 @@ draw2d.policy.figure.RectangleSelectionFeedbackPolicy = draw2d.policy.figure.Sel
      * @constructor 
      * Creates a selection feedback for a shape.
      */
-    init: function()
+    init: function( attr, setter, getter)
     {
-        this._super();
+        this._super( attr, setter, getter);
 
     },
     
@@ -12972,8 +14401,8 @@ draw2d.policy.figure.RectangleSelectionFeedbackPolicy = draw2d.policy.figure.Sel
             // Add a dotted line rectangle to the figure. Override the show/hide method of the standard
             // figure to avoid adding these element to the hit test of the canvas. In this case the element
             // is just visible but not part of the model or responsible for any drag/drop operation
-            //
-            var box = new draw2d.shape.basic.Rectangle({bgColor:null, dashArray:"- ", color:"#2096fc", stroke:0.5});
+            // #2C70FF #2096fc
+            var box = new draw2d.shape.basic.Rectangle({bgColor:null, dashArray:"- ", color:"#2C70FF", stroke:0.5});
             box.hide= function(){
                 // IMPORTANT
                 // don't add/remove this rectangle to the canvas resizeHandles. This rect isn't responsible for any hitTest or
@@ -13106,7 +14535,7 @@ draw2d.policy.figure.RectangleSelectionFeedbackPolicy = draw2d.policy.figure.Sel
             r8.setPosition(xPos-r8.getWidth(),yPos+(objHeight/2)-(r8.getHeight()/2));
         }
         var box= figure.selectionHandles.last();
-        box.setPosition(figure.getPosition().translate(-2,-2));
+        box.setPosition(figure.getPosition().translate(-2.5,-2.5));
         box.setDimension(figure.getWidth()+4, figure.getHeight()+4);
         box.setRotationAngle(figure.getRotationAngle());
     }
@@ -13141,8 +14570,9 @@ draw2d.policy.figure.BigRectangleSelectionFeedbackPolicy = draw2d.policy.figure.
      * @constructor 
      * Creates a new Router object
      */
-    init: function(){
-        this._super();
+    init: function( attr, setter, getter)
+    {
+        this._super( attr, setter, getter);
    },
     
 
@@ -13193,9 +14623,10 @@ draw2d.policy.figure.RoundRectangleSelectionFeedbackPolicy = draw2d.policy.figur
      * @constructor 
      * Creates a new Router object
      */
-    init: function(){
-        this._super();
-   },
+    init: function( attr, setter, getter)
+    {
+        this._super( attr, setter, getter);
+    },
     
 
     /**
@@ -13238,8 +14669,9 @@ draw2d.policy.figure.BusSelectionFeedbackPolicy = draw2d.policy.figure.Selection
      * @constructor 
      * Creates a new Router object
      */
-    init: function(){
-        this._super();
+    init: function( attr, setter, getter)
+    {
+        this._super( attr, setter, getter);
     },
     
 
@@ -13338,8 +14770,9 @@ draw2d.policy.figure.WidthSelectionFeedbackPolicy = draw2d.policy.figure.Selecti
      * @constructor 
      * Creates a new Router object
      */
-    init: function(){
-        this._super();
+    init: function( attr, setter, getter)
+    {
+        this._super( attr, setter, getter);
     },
     
 
@@ -13416,8 +14849,9 @@ draw2d.policy.figure.VBusSelectionFeedbackPolicy = draw2d.policy.figure.BusSelec
      * @constructor 
      * Creates a new Router object
      */
-    init: function(){
-        this._super();
+    init: function( attr, setter, getter)
+    {
+        this._super( attr, setter, getter);
     },
     
 
@@ -13465,8 +14899,9 @@ draw2d.policy.figure.HBusSelectionFeedbackPolicy = draw2d.policy.figure.BusSelec
      * @constructor 
      * Creates a new Router object
      */
-    init: function(){
-        this._super();
+    init: function( attr, setter, getter)
+    {
+        this._super( attr, setter, getter);
     },
     
     /**
@@ -13524,8 +14959,9 @@ draw2d.policy.figure.AntSelectionFeedbackPolicy = draw2d.policy.figure.Selection
      * @constructor 
      * Creates a new Router object
      */
-    init: function(){
-        this._super();
+    init: function( attr, setter, getter)
+    {
+        this._super( attr, setter, getter);
     },
     
 
@@ -13541,7 +14977,7 @@ draw2d.policy.figure.AntSelectionFeedbackPolicy = draw2d.policy.figure.Selection
             var box = new draw2d.shape.basic.Rectangle();
             box.setBackgroundColor(null);
             box.setDashArray("- ");
-            box.setColor("#00bdee");
+            box.setColor("#2C70FF");
             box.hide= function(){
                 // IMPORTANT
                 // don't add/remove this rectangle to the canvas resizeHandles. This rect isn't responsible for any hitTest or
@@ -13578,7 +15014,7 @@ draw2d.policy.figure.AntSelectionFeedbackPolicy = draw2d.policy.figure.Selection
             return; // silently
         }
         var box= figure.selectionHandles.first();
-        box.setPosition(figure.getPosition().translate(-2,-2));
+        box.setPosition(figure.getPosition().translate(-2.5,-2.5));
         box.setDimension(figure.getWidth()+4, figure.getHeight()+4);
         box.setRotationAngle(figure.getRotationAngle());
      }
@@ -13610,8 +15046,9 @@ draw2d.policy.figure.GlowSelectionFeedbackPolicy = draw2d.policy.figure.Selectio
      * @constructor 
      * Creates a new Router object
      */
-    init: function(){
-        this._super();
+    init: function( attr, setter, getter)
+    {
+        this._super( attr, setter, getter);
     },
     
 
@@ -13667,9 +15104,10 @@ draw2d.policy.figure.SlimSelectionFeedbackPolicy = draw2d.policy.figure.Rectangl
      * @constructor 
      * Creates a new Router object
      */
-    init: function(){
-        this._super();
-   },
+    init: function( attr, setter, getter)
+    {
+        this._super( attr, setter, getter);
+    },
     
 
     /**
@@ -13716,8 +15154,9 @@ draw2d.policy.figure.VertexSelectionFeedbackPolicy = draw2d.policy.figure.Select
      * @constructor 
      * Creates a new Router object
      */
-    init: function(){
-        this._super();
+    init: function( attr, setter, getter)
+    {
+        this._super( attr, setter, getter);
     },
     
 
@@ -14848,7 +16287,7 @@ draw2d.policy.port.IntrusivePortsFeedbackPolicy = draw2d.policy.port.PortFeedbac
  *   Library is under GPL License (GPL)
  *   Copyright (c) 2012 Andreas Herz
  ****************************************/draw2d.Configuration = {
-    version : "5.5.3",
+    version : "5.6.5",
     i18n : {
         command : {
             move : "Move Shape",
@@ -15401,6 +16840,7 @@ draw2d.Canvas = Class.extend(
                 return stay;
             });
         }
+        /*
         // only one SnapToXYZ edit policy at once
         else if (policy instanceof draw2d.policy.canvas.SnapToEditPolicy){
             // remove existing snapTo policy
@@ -15412,8 +16852,9 @@ draw2d.Canvas = Class.extend(
                 return stay;
             });
         }
+        */
         else if( policy instanceof draw2d.policy.canvas.ConnectionInterceptorPolicy){
-            // think about if I allow to install move than one
+            // think about if I allow to install more than one
         }
         
         policy.onInstall(this);
@@ -15887,7 +17328,7 @@ draw2d.Canvas = Class.extend(
      * @protected
      * @return {draw2d.util.ArrayList}
      **/
-    getLines:function()
+    getLines: function()
     {
       return this.lines;
     },
@@ -15899,7 +17340,7 @@ draw2d.Canvas = Class.extend(
      * @protected
      * @return {draw2d.util.ArrayList}
      **/
-    getFigures:function()
+    getFigures: function()
     {
       return this.figures;
     },
@@ -15910,9 +17351,9 @@ draw2d.Canvas = Class.extend(
      *
      * @param {String} id The id of the line.
      * 
-     * @type draw2d.shape.basic.Line
+     * @return {draw2d.shape.basic.Line}
      **/
-    getLine:function( id)
+    getLine: function( id)
     {
       var count = this.lines.getSize();
       for(var i=0; i<count;i++)
@@ -15980,8 +17421,9 @@ draw2d.Canvas = Class.extend(
     snapToHelper:function(figure,  pos)
     {
         var _this = this;
+        var orig = pos.clone();
         this.editPolicy.each(function(i,policy){
-            pos = policy.snap(_this, figure, pos);
+             pos = policy.snap(_this, figure, pos, orig);
         });
 
         return pos;
@@ -16202,19 +17644,29 @@ draw2d.Canvas = Class.extend(
     			figureToIgnore = [figureToIgnore];
     		}
     		else{
-    			figureToIgnore=[];
+    			figureToIgnore = [];
     		}
     	}
     	
         var result = null;
         var testFigure = null;
-        var i=0;
-        var children = null;
-        
+
+        var contains = function(testFigure, figuresToCheck){
+            var i,len; // inner function scope of vars. take care about this and don't ove them outside
+            for(i=0,len=figuresToCheck.length; i<len;i++){
+                if(figuresToCheck[i]===testFigure || figuresToCheck[i].contains(testFigure)){
+                    return true;
+                }
+            }
+            return false;
+        };
+
         // ResizeHandles first
+        //
+        var i,len;
         for ( i = 0, len = this.resizeHandles.getSize(); i < len; i++) {
             testFigure = this.resizeHandles.get(i);
-            if (testFigure.isVisible()===true && testFigure.hitTest(x, y) === true && $.inArray(testFigure, figureToIgnore)===-1){ 
+            if (testFigure.isVisible()===true && testFigure.hitTest(x, y) === true && contains(testFigure, figureToIgnore)===false){
                 return testFigure; 
             }
         }
@@ -16225,7 +17677,7 @@ draw2d.Canvas = Class.extend(
             children.each(function(i,e){
                 var c=e.figure;
                 checkRecursive(c.children);
-                if(result===null && c.isVisible()===true && c.hitTest(x,y)===true && $.inArray(c, figureToIgnore)===-1){
+                if(result===null && c.isVisible()===true && c.hitTest(x,y)===true && contains(c, figureToIgnore)===false){
                     result = c;
                 }
                 return result===null; // break the each-loop if we found an element
@@ -16233,13 +17685,14 @@ draw2d.Canvas = Class.extend(
         };
 
         // Checking ports
+        //
         for ( i = 0, len = this.commonPorts.getSize(); i < len; i++) {
             port = this.commonPorts.get(i);
             // check first a children of the figure
             //
             checkRecursive( port.children);
 
-            if(result===null && port.isVisible()===true && port.hitTest(x, y) === true && $.inArray(port, figureToIgnore)===-1){ 
+            if(result===null && port.isVisible()===true && port.hitTest(x, y) === true && contains(port, figureToIgnore)===false){
                result = port;
             }
             
@@ -16260,7 +17713,7 @@ draw2d.Canvas = Class.extend(
             
             // ...and the figure itself
             //
-            if (result ===null && figure.isVisible()===true && figure.hitTest(x, y) === true && $.inArray(figure, figureToIgnore)===-1) {
+            if (result ===null && figure.isVisible()===true && figure.hitTest(x, y) === true && contains(figure, figureToIgnore)===false) {
                 result = figure;
             }
 
@@ -16330,33 +17783,7 @@ draw2d.Canvas = Class.extend(
 	    return null;
     }, 
 
-
     
-    /**
-     * @private
-     **/
-    hideSnapToHelperLines:function()
-    {
-      this.hideSnapToHelperLineHorizontal();
-      this.hideSnapToHelperLineVertical();
-    },
-
-    /**
-     * @private
-     **/
-    hideSnapToHelperLineHorizontal:function()
-    {
-    },
-
-    /**
-     * @private
-     **/
-    hideSnapToHelperLineVertical:function()
-    {
-
-    },
-
-
     /**
      * @method
      * Called by the framework during drag&drop operations.<br>
@@ -16925,8 +18352,9 @@ draw2d.Figure = Class.extend({
         this.repaintBlocked=false;
         this.lastAppliedAttributes = {};
         this.selectionHandles = new draw2d.util.ArrayList();
+        this.panningDelegate = null;
 
-        // eventhandling since version 5.0.0
+        // even handling since version 5.0.0
         this.eventSubscriptions = {};
 
         // install default selection handler. Can be overridden or replaced
@@ -17138,7 +18566,22 @@ draw2d.Figure = Class.extend({
         
         return this;
     },
-    
+
+    /**
+     * @method
+     * Returns true if the figure part of the current canvas selection.
+     *
+     * @since 5.5.6
+     */
+    isSelected: function(){
+
+        if(this.canvas !==null){
+            return this.canvas.getSelection().contains(this);
+        }
+
+        return false;
+    },
+
     /**
      * @method
      * Allows a user to attach (or remove) data to an element, without needing to create a custom figure or shape.
@@ -17430,7 +18873,7 @@ draw2d.Figure = Class.extend({
       * Inherit classes must override this method if they want use the timer feature.
       * 
       *      // Alternatively you can register for this event with  
-      *      figure.on("timer", function(emitterFigure){
+      *      figure.on("timer", function(emitter){
       *          alert("timer fired");
       *      });
       * 
@@ -17632,7 +19075,7 @@ draw2d.Figure = Class.extend({
      add: function(child, locator, index)
      {
          if(typeof locator ==="undefined" || locator ===null){
-             throw "Second parameter 'locator' is requried for method 'Figure#add'";
+             throw "Second parameter 'locator' is required for method 'Figure#add'";
          }
          
          // the child is now a slave of the parent
@@ -17657,6 +19100,7 @@ draw2d.Figure = Class.extend({
 
          return this;
      },
+
      /**
       * @method
       * @deprecated use draw2d.Figure.add() 
@@ -17869,7 +19313,27 @@ draw2d.Figure = Class.extend({
 
          return this;
      },
-     
+
+
+    /**
+     * @method
+     * Allow dragging only when the cursor is over a specific part of the figure.
+     * <br>
+     * Override this method to specify the bounding box of an element or a draw2d.util.ArrayList
+     * of draw2d.geo.Rectangle of bounding boxes used to drag the figure. The returned coordinates
+     * are absolute coordinates to the canvas.
+     * <br>
+     * <br>
+     * Default implementation returns <b>null<b> to indicate to use the complete figures as
+     * drag handle.
+     *
+     * @since 5.6.0
+     * @returns {draw2d.geo.Rectangle|draw2d.util.ArrayList}
+     */
+     getHandleBBox: function()
+     {
+        return null
+     },
 
     /**
      * @method
@@ -17886,6 +19350,24 @@ draw2d.Figure = Class.extend({
     onDragStart : function(x, y, shiftKey, ctrlKey )
     {
       this.isInDragDrop =false;
+
+      // Check whenever the figures has a drag-handle. Allow drag&drop
+      // operation only if the x/y is inside this area.
+      //
+      // @since 5.6.0
+      var bbox = this.getHandleBBox();
+      if(bbox!==null && bbox.translate(this.getAbsolutePosition().scale(-1)).hitTest(x,y)===false){
+
+          // design failure: we must cash the figure below the mouse to forward
+          // the panning event to this figure. Special handling to provide sliders
+          // and other UI elements which requires the panning event. Hack.
+          this.panningDelegate = this.getBestChild(this.getX()+x,this.getY()+y);
+          if(this.panningDelegate!==null){
+              // transform x/y relative to the panning figure and request the dragStart event
+              this.panningDelegate.onDragStart(x-this.panningDelegate.x, y-this.panningDelegate.y, shiftKey, ctrlKey);
+          }
+          return false;
+      }
 
       this.command = this.createCommand(new draw2d.command.CommandType(draw2d.command.CommandType.MOVE));
 
@@ -17926,7 +19408,7 @@ draw2d.Figure = Class.extend({
      * @param {Number} dx2 The x diff since the last call of this dragging operation
      * @param {Number} dy2 The y diff since the last call of this dragging operation
      **/
-    onDrag : function( dx,  dy, dx2, dy2)
+    onDrag: function( dx,  dy, dx2, dy2)
     {
       var _this = this;
 
@@ -17969,7 +19451,12 @@ draw2d.Figure = Class.extend({
      * Called by the framework if the figure returns false for the drag operation. In this
      * case we send a "panning" event - mouseDown + mouseMove. This is very useful for
      * UI-Widget like slider, spinner,...
-     * 
+     *
+     *      // You can alternatively register an event handler with:
+     *      figure.on("panning", function(emitter, eventData){
+     *          alert("panning of the figure called");
+     *      });
+     *
      * @param {Number} dx the x difference between the mouse down operation and now
      * @param {Number} dy the y difference between the mouse down operation and now
      * @param {Number} dx2 The x diff since the last call of this dragging operation
@@ -17978,9 +19465,22 @@ draw2d.Figure = Class.extend({
      */
     onPanning: function(dx, dy, dx2, dy2)
     {
-        
     },
-    
+
+    /**
+     * @method
+     * Called by the framework if the panning event of the figures ends. This happens
+     * after the mous up event if the panning is active.
+     *
+     *      // You can alternatively register an event handler with:
+     *      figure.on("panningEnd", function(emitter){
+     *          alert("panning of the figure called");
+     *      });
+     *
+     */
+    onPanningEnd:function()
+    {
+    },
     
     /**
      * @method
@@ -18004,6 +19504,7 @@ draw2d.Figure = Class.extend({
       //
       this.command.setPosition(this.x, this.y);
       this.isInDragDrop = false;
+      this.panningDelegate=null;
 
       this.canvas.getCommandStack().execute(this.command);
       this.command = null;
@@ -18123,7 +19624,7 @@ draw2d.Figure = Class.extend({
      * Called when a user dbl clicks on the element
      * 
      *      // Alternatively you register for this event with:
-     *      figure.on("dblclick", function(emitterFunction){
+     *      figure.on("dblclick", function(emitter){
      *          alert("user dbl click on the figure");
      *      });
      * 
@@ -18138,8 +19639,8 @@ draw2d.Figure = Class.extend({
      * @method
      * Called when a user clicks on the element.
      * 
-     *      // Alternatively you register for this event with:
-     *      figure.on("click", function(emitterFunction){
+     *      // You can alternatively register an event handler with:
+     *      figure.on("click", function(emitter){
      *          alert("user click on the figure");
      *      });
      * 
@@ -18157,7 +19658,7 @@ draw2d.Figure = Class.extend({
      * right click with the mouse.
      * 
      *      // Alternatively you register for this event with:
-     *      figure.on("contextmenu", function(emitterFunction){
+     *      figure.on("contextmenu", function(emitter){
      *          alert("user press the right mouse button for a context menu");
      *      });
      * 
@@ -18646,7 +20147,7 @@ draw2d.Figure = Class.extend({
             this.y = y;
         }
 
-        var oldPos = {x:this.x, y:this.y};
+//        var oldPos = {x:this.x, y:this.y};
         
         var _this = this;
 
@@ -19007,6 +20508,31 @@ draw2d.Figure = Class.extend({
 
     /**
      * @method
+     * Check to see if a figure is a descendant of another figure.
+     * <br>
+     * The contains() method returns true if the figure provided by the argument is a descendant of this figure,
+     * whether it is a direct child or nested more deeply. Otherwise, it returns false.
+     *
+     * @param {draw2d.Figure} containedFigure The figure that may be contained by (a descendant of) this figure.
+     * @since 5.5.4
+     */
+    contains: function(containedFigure)
+    {
+        if(containedFigure.getParent()===this){
+            return true;
+        }
+
+        for(var i= 0,len=this.children.getSize(); i<len;i++){
+            var child = this.children.get(i).figure;
+            if(child.contains(containedFigure)) {
+                return true;
+            }
+        }
+        return false;
+    },
+
+    /**
+     * @method
      * Get the top most parent of this figure. This can be an layout figure or parent container
      *
      * @return {draw2d.Figure}
@@ -19166,7 +20692,49 @@ draw2d.Figure = Class.extend({
 
         return this;
     },
-    
+
+
+
+    /**
+     * @method
+     * Returns the best figure at the location [x,y]. It is a simple hit test. Keep in mind that only visible objects
+     * are returned.
+     *
+     * @param {Number} x The x position.
+     * @param {Number} y The y position.
+     * @param {draw2d.Figure|Array} [figureToIgnore] The figures which should be ignored.
+     **/
+    getBestChild: function(x, y, figureToIgnore)
+    {
+        if(!$.isArray(figureToIgnore)){
+            if(figureToIgnore instanceof draw2d.Figure){
+                figureToIgnore = [figureToIgnore];
+            }
+            else{
+                figureToIgnore=[];
+            }
+        }
+
+        var result = null;
+
+        // tool method to check recursive a figure for hitTest
+        //
+        var checkRecursive = function(children){
+            children.each(function(i,e){
+                var c=e.figure;
+                checkRecursive(c.children);
+                if(result===null && c.isVisible()===true && c.hitTest(x,y)===true && $.inArray(c, figureToIgnore)===-1){
+                    result = c;
+                }
+                return result===null; // break the each-loop if we found an element
+            });
+        };
+
+        checkRecursive( this.children);
+
+        return result;
+    },
+
     /**
      * @method
      * Returns the Command to perform the specified Request or null.
@@ -21008,7 +22576,7 @@ draw2d.SVGFigure = draw2d.SetFigure.extend({
                             case 11://DOCUMENT_FRAGMENT_NODE
                             case 12://NOTATION_NODE
                                 return;
-                            case 3://TEXT_NOD   
+                            case 3://TEXT_NODE
                             	 // redirect to the parent node if we found a simple TEXT without any attributes
                             	child = element;
                             	break;
@@ -21053,7 +22621,9 @@ draw2d.SVGFigure = draw2d.SetFigure.extend({
                        
                         subShape.attr(subAttr);
                         set.push(subShape);
-                    }while(child= child.nextSibling);
+                        child = child.nextSibling;
+
+                    }while(child && child.nodeType === 3); // 3= TEXT_NODE
                 }
                 else{
                   shape = canvas.paper.text(0,0,$(element).html());
@@ -22023,7 +23593,7 @@ draw2d.shape.basic.Label= draw2d.SetFigure.extend({
         var lattr = this.calculateTextAttr();
         lattr.text = this.text;        
         
-        attrDiff = draw2d.util.JSON.flatDiff(lattr, this.lastAppliedTextAttributes);
+        var attrDiff = draw2d.util.JSON.flatDiff(lattr, this.lastAppliedTextAttributes);
         this.lastAppliedTextAttributes= lattr;
       
         // the two "attr" calls takes 2/3 of the complete method call (chrome performance check).
@@ -22066,10 +23636,10 @@ draw2d.shape.basic.Label= draw2d.SetFigure.extend({
     applyTransformation:function()
     {
         var ts= "R"+this.rotationAngle;
-        if(ts!==this.lastAppliedLabelRotation){
+    //    if(ts!==this.lastAppliedLabelRotation){
             this.shape.transform(ts);
             this.lastAppliedLabelRotation = ts;
-        }
+    //    }
         
         this.svgNodes.transform(
                 "R" + this.rotationAngle+
@@ -22706,13 +24276,17 @@ draw2d.shape.basic.Text= draw2d.shape.basic.Label.extend({
     {
         this.clearCache();
         var attr = this.wrappedTextAttr(this.text, w);
-        
-        this._super(Math.min(w,attr.width),attr.height);
+
+        this.cachedMinWidth = Math.min(w,attr.width);
+        this.cachedMinHeight= attr.height;
+
+        draw2d.shape.node.Node.prototype.setDimension.call(this,this.cachedMinWidth, this.cachedMinHeight);
+      //  this._super(Math.min(w,attr.width),attr.height);
         this.fireEvent("change:dimension");
        
         return this;
     },
-    
+
     /**
      * @method
      * clear the internal cache for width/height precalculation
@@ -22786,9 +24360,12 @@ draw2d.shape.basic.Text= draw2d.shape.basic.Label.extend({
                 }
                 s.push(w);
             }
+            // set the wrapped text and get the resulted boudning box
+            //
+            svgText.attr({text: s.join("")});
             var bbox = svgText.getBBox(true);
             svgText.remove();
-            this.cachedWrappedAttr= {text: s.join(""), width:(bbox.width+this.padding.left+this.padding.right), height: (bbox.height+this.padding.top+this.padding.bottom)};
+            this.cachedWrappedAttr= {text: s.join(""), width:(Math.max(width,bbox.width)+this.padding.left+this.padding.right), height: (bbox.height+this.padding.top+this.padding.bottom)};
         }
         return this.cachedWrappedAttr;
      },
@@ -23831,7 +25408,7 @@ draw2d.shape.basic.Line = draw2d.Figure.extend({
  * 
  * @static
  * @private
- * @returns
+ * @returns {draw2d.geo.Point}
  */
 draw2d.shape.basic.Line.intersection = function(a1, a2, b1, b2) {
     var result=null;
@@ -26471,7 +28048,7 @@ draw2d.Connection = draw2d.shape.basic.PolyLine.extend({
         }
         
         this.command.setTranslation(dx,dy);
-        
+
         // don't drag start/end around. This Points are bounded to the related
         // ports.
         var count = this.getVertices().getSize()-1;
@@ -26868,7 +28445,15 @@ draw2d.Connection = draw2d.shape.basic.PolyLine.extend({
                   node:parentNode.getId(),
                   port:this.getTarget().getName()
                 };
-       
+
+        if(this.sourceDecorator!==null){
+            memento.source.decoration = this.sourceDecorator.NAME;
+        }
+
+        if(this.targetDecorator!==null){
+            memento.target.decoration = this.targetDecorator.NAME;
+        }
+
         return memento;
     },
     
@@ -26886,6 +28471,15 @@ draw2d.Connection = draw2d.shape.basic.PolyLine.extend({
         // nothing to to for the connection creation. This will be done in the draw2d.io.Reader 
         // implementation
         //
+        // restore your custom attributes here
+        if(typeof memento.target.decoration !=="undefined" && memento.target.decoration!=null){
+            this.setTargetDecorator( eval("new "+memento.target.decoration));
+        }
+
+        if(typeof memento.source.decoration !=="undefined" && memento.source.decoration!=null){
+            this.setSourceDecorator( eval("new "+memento.source.decoration));
+        }
+
     }
 });
 
@@ -27511,8 +29105,6 @@ draw2d.ResizeHandle = draw2d.shape.basic.Rectangle.extend({
             this.commandResize = null;
         }
 
-        this.canvas.hideSnapToHelperLines();
-        
         // fire an event
         // @since 5.3.3
         this.fireEvent("dragend",{x:x, y:y, shiftKey:shiftKey, ctrlKey:ctrlKey});
@@ -27955,7 +29547,6 @@ draw2d.shape.basic.LineResizeHandle = draw2d.shape.basic.Circle.extend({
             }
         }
         this.command = null;
-        this.getCanvas().hideSnapToHelperLines();
 
         this.setAlpha(1);
 
@@ -28466,8 +30057,7 @@ draw2d.shape.basic.VertexResizeHandle = draw2d.ResizeHandle.extend({
         try{
 	        stack.execute(this.command);
 	        this.command = null;
-	        this.getCanvas().hideSnapToHelperLines();
-	
+
 	        var angle = this.getEnclosingAngle();
 	        if(angle>178){
 	           	var cmd  = new draw2d.command.CommandRemoveVertex(this.owner, this.index );
@@ -28515,8 +30105,8 @@ draw2d.shape.basic.VertexResizeHandle = draw2d.ResizeHandle.extend({
         var points = this.owner.getVertices();
         var trans  = this.vertex.getScaled(-1);
         var size = points.getSize();
-        var left   = points.get((this.index-1 +size)%size).getTranslated(trans); // % is just to ensure the [0, size] interval
-        var right  = points.get((this.index+1)%size).getTranslated(trans);       // % is just to ensure the [0, size] interval
+        var left   = points.get((this.index-1 +size)%size).translated(trans); // % is just to ensure the [0, size] interval
+        var right  = points.get((this.index+1)%size).translated(trans);       // % is just to ensure the [0, size] interval
         
         var dot = left.dot(right);
         
@@ -28720,16 +30310,18 @@ draw2d.Port = draw2d.shape.basic.Circle.extend({
      */
     init: function( attr, setter, getter)
     {
+        var _this = this;
+
         this.locator = null;
         this.lighterBgColor =null;
         
         this._super($.extend({
-            bgColor: "#4f6870",
-            stroke:1,
-            diameter:draw2d.isTouchDevice?25:10,
-            color:"#1B1B1B",
-            selectable:false
-             },attr),
+                bgColor: "#4f6870",
+                stroke:1,
+                diameter:draw2d.isTouchDevice?25:10,
+                color:"#1B1B1B",
+                selectable:false
+            },attr),
             setter,
             getter);
         
@@ -28760,12 +30352,12 @@ draw2d.Port = draw2d.shape.basic.Circle.extend({
             this.name = name;
         }
         
-        this.moveListener =function( figure){
-            this.repaint();
+        this.moveListener = function( figure){
+            _this.repaint();
             // Falls sich der parent bewegt hat, dann muss der Port dies seinen
             // Connections mitteilen
-            this.fireEvent("move");
-        }.bind(this);
+            _this.fireEvent("move");
+        };
         
         this.connectionAnchor = new draw2d.layout.anchor.ConnectionAnchor(this);
 
@@ -30735,7 +32327,7 @@ draw2d.shape.flowchart.Document = draw2d.VectorFigure.extend({
 draw2d.shape.widget.Widget = draw2d.SetFigure.extend({
     
     init: function( attr , setter, getter ){
-        this._super( attr);
+        this._super( attr, setter, getter);
     }
 });
 /*****************************************
@@ -30758,22 +32350,39 @@ draw2d.shape.widget.Slider = draw2d.shape.widget.Widget.extend({
     NAME : "draw2d.shape.widget.Slider",
     
     DEFAULT_COLOR_THUMB : new draw2d.util.Color("#bddf69"),
-    DEFAULT_COLOR_BG : new draw2d.util.Color("#d3d3d3"),
+    DEFAULT_COLOR_BG    : new draw2d.util.Color("#d3d3d3"),
     
     
     init: function(attr, setter, getter ){
         this.currentValue = 0; // [0..100] 
         this.slideBoundingBox = new draw2d.geo.Rectangle(0,0,10,20);
+        this.padding = {top:4, right:4, bottom:4,left:4};
+        this.panning = false;
+        this.thumbGrow = 0;
 
-        this._super( $.extend({width:150, height:15}, attr));
-        
-        this.setBackgroundColor(this.DEFAULT_COLOR_BG);
-        this.setColor(this.DEFAULT_COLOR_THUMB);
-        this.setStroke(1);
-        this.setRadius(4);
-        this.setResizeable(true);
-        
-        this.setMinHeight(10);
+        this._super(
+            $.extend({
+                width:150,
+                height:15,
+                stroke:1,
+                radius:4,
+                resizeable:true,
+                color:this.DEFAULT_COLOR_THUMB,
+                bgColor:this.DEFAULT_COLOR_BG,
+                value:50
+            },attr),
+            $.extend({
+                /** @attr {Number} padding the padding in pixel around the text */
+                padding  : this.setPadding,
+                /** @attr {Number} value the new value of the slider. values must be in range of [0..100] */
+                value    : this.setValue
+            }, setter),
+            $.extend({
+                padding  : this.getPadding,
+                value    : this.getValue
+            }, getter));
+
+        this.setMinHeight(15);
         this.setMinWidth(80);
     },
     
@@ -30785,7 +32394,7 @@ draw2d.shape.widget.Slider = draw2d.shape.widget.Widget.extend({
     createSet: function()
     {
         var result = this.canvas.paper.set();
-        var thumb= this.canvas.paper.rect(5,5,10,20);
+        var thumb= this.canvas.paper.rect(0,0,10,20);
         thumb.node.style.cursor=  "col-resize";
         result.push(thumb);
 
@@ -30795,12 +32404,59 @@ draw2d.shape.widget.Slider = draw2d.shape.widget.Widget.extend({
     setDimension:function(w,h)
     {
         this._super(w,h);
-        this.slideBoundingBox.setBoundary(0,0,this.getWidth()-10 , this.getHeight());
+        this.slideBoundingBox.setBoundary(this.padding.left,0,this.getWidth()-this.padding.right , this.getHeight());
         this.slideBoundingBox.setHeight(this.getHeight()+1);
-        
+
         // TODO: and repaint again.....two repaints for one "setDimension"....BAD
         //
         this.repaint();
+    },
+
+
+    /**
+     * @method
+     * Set the padding of the element
+     *
+     *      // Alternatively you can use the attr method:
+     *      //
+     *      // set the padding for top,left,bottom,right in one call
+     *      figure.attr({
+     *        padding: 3
+     *      });
+     *
+     *      // update the padding left and top
+     *      figure.attr({
+     *        padding: {left:3, top:30}
+     *      });
+     *
+     * @param {Number|Object} padding The new padding
+     * @since 5.6.0
+     **/
+    setPadding: function( padding)
+    {
+        this.clearCache();
+        if(typeof padding ==="number"){
+            this.padding = {top:padding, right:padding, bottom:padding, left:padding};
+        }
+        else{
+            $.extend(this.padding, padding);
+        }
+        this.repaint();
+        this.fireEvent("change:padding");
+
+        return this;
+    },
+
+
+    /**
+     * @method
+     * Get the padding of the element.
+     *
+     * @since 5.6.0
+     **/
+    getPadding: function( )
+    {
+        return this.padding;
     },
 
     /**
@@ -30828,22 +32484,35 @@ draw2d.shape.widget.Slider = draw2d.shape.widget.Widget.extend({
      **/
     onDragStart : function(x, y , shiftKey, ctrlKey)
     {
-        
-        // check if the use has been clicked on the thumb
+        // check if the use has been clicked on the thumb.
+        // Return "false" to prevent drag&drop operation.
         //
         if(this.slideBoundingBox.hitTest(x, y)){
-            this.origX=this.slideBoundingBox.getX();
-            this.origY=this.slideBoundingBox.getY();
+
+            this.panningX = x;
+            this.panningY = y;
+            this.panning=true;
+            this.tweenable = new Tweenable();
+            this.tweenable.tween({
+                from: { grow: this.thumbGrow  },
+                to:   { grow: 10 },
+                duration: 500,
+                easing: 'easeOutQuart',
+                step: $.proxy(function (state) {
+                    this.thumbGrow = state.grow;
+                    this.repaint();
+                },this)
+            });
             return false;
         }
         
         return this._super(x, y, shiftKey, ctrlKey);
     },
-    
+
     /**
      * @method
      * Called by the framework if the figure returns false for the drag operation. In this
-     * case we send a "panning" event - mouseDown + mouseMove. This is very usefull for
+     * case we send a "panning" event - mouseDown + mouseMove. This is very useful for
      * UI-Widget like slider, spinner,...
      * 
      * @param {Number} dx the x difference between the mouse down operation and now
@@ -30853,9 +32522,45 @@ draw2d.shape.widget.Slider = draw2d.shape.widget.Widget.extend({
      */
     onPanning: function(dx, dy, dx2, dy2)
     {
-        this.slideBoundingBox.setPosition(this.origX+dx, this.origY+dy);
-        // calculate the internal value of the slider
-        this.setValue(100/(this.slideBoundingBox.bw-this.slideBoundingBox.getWidth())*this.slideBoundingBox.getX());
+        // calculate the current position of the mouse pos
+        //
+        var thumbW2 = this.slideBoundingBox.w/2;
+        var width = this.getWidth();
+        var sliderWidth = width - this.padding.left - this.padding.right;
+
+        var figurePos = Math.min(width, Math.max(0,this.panningX+dx));
+        var sliderPos = Math.min(width-this.padding.left-this.padding.right,figurePos-this.padding.left)-thumbW2;
+
+        this.setValue(100/sliderWidth*sliderPos);
+    },
+
+
+    /**
+     * @inheritdoc
+     */
+    onPanningEnd : function()
+    {
+        this.panning=false;
+        if(this.tweenable!==null) {
+            this.tweenable.dispose();
+        }
+        this.tweenable = new Tweenable();
+        this.tweenable.tween({
+            from: { grow: this.thumbGrow  },
+            to:   { grow: 0 },
+            duration: 300,
+            easing: 'easeOutQuart',
+            step: $.proxy(function (state) {
+                this.thumbGrow = state.grow;
+                this.repaint();
+            },this),
+            finish: $.proxy(function(){
+                this.tweenable.dispose();
+                this.tweenable=null;
+            },this)
+        });
+        this.thumbGrow =0;
+        this.repaint();
     },
 
     /**
@@ -30870,15 +32575,29 @@ draw2d.shape.widget.Slider = draw2d.shape.widget.Widget.extend({
         this.repaint();
         this.onValueChange(this.currentValue);
         this.fireEvent("change:value");
+
+        return this;
     },
 
+    /**
+     * @method
+     * Returns the current value of the slider
+     *
+     * @since 5.6.0
+     *
+     * @returns {Number}
+     */
+    getValue: function()
+    {
+        return this.currentValue;
+    },
     
     /**
      * 
      * @param attributes
      */
-    repaint: function(attributes){
-        
+    repaint: function(attributes)
+    {
         if (this.repaintBlocked === true || this.shape === null){
             return;
         }
@@ -30887,7 +32606,7 @@ draw2d.shape.widget.Slider = draw2d.shape.widget.Widget.extend({
      
         // adjust the slider to the current value and the new dimension of the widget
         //
-        var thumbX = ((this.slideBoundingBox.bw-this.slideBoundingBox.getWidth())/100*this.currentValue)|0;
+        var thumbX =(((this.getWidth()-this.padding.left-this.padding.right)/100*this.currentValue)+this.padding.left)|0;
         this.slideBoundingBox.setX(thumbX);
 
 
@@ -30895,11 +32614,11 @@ draw2d.shape.widget.Slider = draw2d.shape.widget.Widget.extend({
         //
 		if (this.svgNodes !== null) {
 			var attr = this.slideBoundingBox.toJSON();
-			attr.y = attr.y - 5;
-			attr.height = attr.height + 10;
-			attr.fill = this.getColor().hash();
-			attr.stroke = this.getColor().darker(0.2).hash();
-			attr.r = 4;
+            attr.y      -= (this.thumbGrow/2);
+            attr.height += this.thumbGrow;
+			attr.fill    = this.getColor().hash();
+			attr.stroke  = this.getColor().darker(0.2).hash();
+			attr.r       = 4;
 			this.svgNodes.attr(attr);
 		}
  
@@ -31882,8 +33601,8 @@ draw2d.shape.layout.Layout= draw2d.shape.basic.Rectangle.extend({
        child.on("resize",this.resizeListener);
        child.on("change:visibility", this.resizeListener);
 
-        // don't use the getter/stter. This considers the canvas assignment and
-        // the child is always invisible. BIG BUG. The example shape_db if you change this.
+        // don't use the getter/setter. This considers the canvas assignment and
+        // the child is always invisible. BIG BUG. The example shape_db will break if you change this.
 //       child.setVisible(this.isVisible());
        child.visible = this.visible;
 
@@ -32139,15 +33858,16 @@ draw2d.shape.layout.HorizontalLayout= draw2d.shape.layout.Layout.extend({
     */
     getMinWidth:function()
     {
+        var _this = this;
         var width=this.stroke*2+this.padding.left+this.padding.right;
         var gap = 0;
 
         this.children.each(function(i,e){
             if(e.figure.isVisible()){
                 width += (e.figure.isResizeable()?e.figure.getMinWidth():e.figure.getWidth()+gap);
-                gap = this.gap;
+                gap = _this.gap;
             }
-        }.bind(this));
+        });
 
         return width;
     },
@@ -32184,12 +33904,13 @@ draw2d.shape.layout.HorizontalLayout= draw2d.shape.layout.Layout.extend({
             });
         }
         else{
+            var minHeight = this.getMinHeight();
             this.children.each(function(i,e){
                 // The layout respect the "resizeable" flag because a layout is a kind of layouter and 
                 // any kind of autolayouter must respect this flag
                 if(e.figure.isResizeable()===true){
                     // reset the shape to the minimum width/height. see setMinWidth/setMinHeight
-                    e.figure.setDimension(1,1);
+                    e.figure.setDimension(1,minHeight);
                 }
             });
         }
@@ -32346,6 +34067,7 @@ draw2d.shape.layout.VerticalLayout= draw2d.shape.layout.Layout.extend({
      */
     getMinHeight:function()
     {
+        var _this = this;
     	var gap = 0;
         var markup=(this.stroke*2)+this.padding.top+this.padding.bottom;
         var height=0;
@@ -32354,9 +34076,9 @@ draw2d.shape.layout.VerticalLayout= draw2d.shape.layout.Layout.extend({
         	if(e.figure.isVisible()){
         		height += ((e.figure.isResizeable()?e.figure.getMinHeight():e.figure.getHeight())+gap);
         		// first element is iterated. Now we must add the gap to all next elements
-        		gap = this.gap;
+        		gap = _this.gap;
         	}
-        }.bind(this));
+        });
         
         return height+markup;
     },
@@ -32368,10 +34090,10 @@ draw2d.shape.layout.VerticalLayout= draw2d.shape.layout.Layout.extend({
     {
         this._super(w,h);
 
-        var width=this.width-(2*this.stroke)+this.padding.left+this.padding.right;
+        var width=this.width-this.padding.left-this.padding.right;
         this.children.each(function(i,e){
             if(e.figure.isResizeable() && e.figure.isVisible()){
-                e.figure.setDimension(width,e.figure.getHeight());
+                e.figure.setDimension(width,e.figure.getMinHeight());
             }
         });
 
@@ -32626,10 +34348,11 @@ draw2d.shape.layout.TableLayout= draw2d.shape.layout.Layout.extend({
      */
     removeRow: function(index)
     {
+        var _this = this;
     	var removedRow = this.grid.splice(index, 1);
     	removedRow[0].forEach(function(figure){
-    		this.remove(figure);
-    	}.bind(this));
+    		_this.remove(figure);
+    	});
     	
     	this.calculateLayout();
     	this.setDimension(2,2);
