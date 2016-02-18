@@ -1,14 +1,14 @@
 {
   "name": "draw2d",
-  "version": "5.6.5",
+  "version": "6.0.0-beta",
   "main": [
+    "dist/canvg.js",
+    "dist/Class.js",
+    "dist/raphael.js",
     "dist/jquery.autoresize.js",
     "dist/jquery-touch_punch.js",
     "dist/jquery.contextmenu.js",
-    "dist/patched_raphael.js",
     "dist/rgbcolor.js",
-    "dist/patched_canvg.js",
-    "dist/patched_Class.js",
     "dist/json2.js",
     "dist/pathfinding-browser.min.js",
     "dist/StackBlur.js",
